@@ -1,5 +1,5 @@
 const express = require('express');
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const path = require('path');
 const dotenv = require('dotenv');
 const cors = require('cors');
@@ -32,115 +32,123 @@ app.use((req, res, next) => {
 });
 
 // =====================
-// SQLITE DATABASE SETUP
+// POSTGRESQL DATABASE SETUP (NEON)
 // =====================
 
-const dbPath = path.join(__dirname, 'timetable.db');
-let db;
-try {
-  db = new Database(dbPath);
-  console.log('✅ SQLite Connected');
-  console.log(`📁 Database file: ${dbPath}`);
-} catch (err) {
-  console.log('❌ SQLite Error:', err);
-  process.exit(1);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_A1pxZHKXm2Yf@ep-orange-sunset-an9t43bd.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require',
+  ssl: { rejectUnauthorized: false }
+});
+
+// Helper: run a query
+async function query(text, params) {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(text, params);
+    return result;
+  } finally {
+    client.release();
+  }
 }
 
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
-
-// Create Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    passwordHash TEXT NOT NULL,
-    role TEXT NOT NULL,
-    className TEXT,
-    section TEXT,
-    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS lectures (
-    id TEXT PRIMARY KEY,
-    subjectName TEXT NOT NULL,
-    teacherName TEXT NOT NULL,
-    className TEXT NOT NULL,
-    section TEXT,
-    startTime TEXT NOT NULL,
-    endTime TEXT NOT NULL,
-    roomNumber TEXT,
-    lectureDate TEXT NOT NULL,
-    isCancelled INTEGER DEFAULT 0,
-    cancellationReason TEXT,
-    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS notifications (
-    id TEXT PRIMARY KEY,
-    studentId TEXT NOT NULL,
-    lectureId TEXT,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    notificationType TEXT,
-    isRead INTEGER DEFAULT 0,
-    scheduledAt TEXT DEFAULT CURRENT_TIMESTAMP,
-    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (studentId) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS timetable (
-    id TEXT PRIMARY KEY,
-    subjectName TEXT NOT NULL,
-    teacherName TEXT NOT NULL,
-    className TEXT NOT NULL,
-    section TEXT,
-    day TEXT NOT NULL,
-    startTime TEXT NOT NULL,
-    endTime TEXT NOT NULL,
-    roomNumber TEXT,
-    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-console.log('✅ All tables ready');
-
-// Create default test accounts
-const pass = bcrypt.hashSync('password123', 10);
-
-const insertUser = db.prepare(`INSERT OR IGNORE INTO users (id, name, email, passwordHash, role, className, section) VALUES (?, ?, ?, ?, ?, ?, ?)`);
-
-insertUser.run('test_student_id', 'Test Student', 'student@test.com', pass, 'student', 'SE', 'A');
-insertUser.run('test_teacher_id', 'Test Teacher', 'teacher@test.com', pass, 'teacher', 'SE', 'A');
-
-const teacherPass = bcrypt.hashSync('Teacher2904', 10);
-insertUser.run('teacher_id_1', 'Teacher', 'Teacher@gmail.com', teacherPass, 'teacher', 'SE', 'A');
-
-console.log('✅ Default accounts ready');
-
-const users = db.prepare('SELECT name, email, role FROM users').all();
-console.log('--- CURRENT REGISTERED USERS ---');
-console.table(users);
-
-// Make db globally accessible
-global.db = db;
-
-// =====================
-// HELPER FUNCTIONS
-// =====================
-
+// Helper: generate ID
 function generateId() {
   return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
-// Health check route
-app.get('/api/health', (req, res) => {
-  res.status(200).send('OK');
+// Setup tables and default accounts
+async function initDB() {
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        "passwordHash" TEXT NOT NULL,
+        role TEXT NOT NULL,
+        "className" TEXT,
+        section TEXT,
+        "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS lectures (
+        id TEXT PRIMARY KEY,
+        "subjectName" TEXT NOT NULL,
+        "teacherName" TEXT NOT NULL,
+        "className" TEXT NOT NULL,
+        section TEXT,
+        "startTime" TEXT NOT NULL,
+        "endTime" TEXT NOT NULL,
+        "roomNumber" TEXT,
+        "lectureDate" TEXT NOT NULL,
+        "isCancelled" INTEGER DEFAULT 0,
+        "cancellationReason" TEXT,
+        "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        "studentId" TEXT NOT NULL,
+        "lectureId" TEXT,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        "notificationType" TEXT,
+        "isRead" INTEGER DEFAULT 0,
+        "scheduledAt" TEXT DEFAULT CURRENT_TIMESTAMP,
+        "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS timetable (
+        id TEXT PRIMARY KEY,
+        "subjectName" TEXT NOT NULL,
+        "teacherName" TEXT NOT NULL,
+        "className" TEXT NOT NULL,
+        section TEXT,
+        day TEXT NOT NULL,
+        "startTime" TEXT NOT NULL,
+        "endTime" TEXT NOT NULL,
+        "roomNumber" TEXT,
+        "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ All tables ready');
+
+    // Insert default accounts
+    const pass = await bcrypt.hash('password123', 10);
+    const teacherPass = await bcrypt.hash('Teacher2904', 10);
+
+    await query(`INSERT INTO users (id, name, email, "passwordHash", role, "className", section) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (email) DO NOTHING`,
+      ['test_student_id', 'Test Student', 'student@test.com', pass, 'student', 'SE', 'A']);
+
+    await query(`INSERT INTO users (id, name, email, "passwordHash", role, "className", section) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (email) DO NOTHING`,
+      ['test_teacher_id', 'Test Teacher', 'teacher@test.com', pass, 'teacher', 'SE', 'A']);
+
+    await query(`INSERT INTO users (id, name, email, "passwordHash", role, "className", section) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (email) DO NOTHING`,
+      ['teacher_id_1', 'Teacher', 'Teacher@gmail.com', teacherPass, 'teacher', 'SE', 'A']);
+
+    console.log('✅ Default accounts ready');
+
+    const users = await query(`SELECT name, email, role FROM users`);
+    console.log('--- CURRENT REGISTERED USERS ---');
+    console.table(users.rows);
+
+    console.log('✅ PostgreSQL (Neon) Connected & Ready!');
+  } catch (err) {
+    console.error('❌ DB Init Error:', err);
+    process.exit(1);
+  }
+}
+
+initDB();
+
+// =====================
+// HEALTH CHECK
+// =====================
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is running!' });
 });
 
-app.get('/test', (req, res) => {
-  res.send('TEST WORKING');
-});
 // =====================
 // AUTHENTICATION ROUTES
 // =====================
@@ -166,9 +174,10 @@ app.post('/api/auth/register', async (req, res) => {
     );
 
     try {
-      db.prepare(
-        `INSERT INTO users (id, name, email, passwordHash, role, className, section) VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).run(userId, name, email, hashedPassword, role, className || null, section || null);
+      await query(
+        `INSERT INTO users (id, name, email, "passwordHash", role, "className", section) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [userId, name, email, hashedPassword, role, className || null, section || null]
+      );
 
       res.status(201).json({
         success: true,
@@ -189,9 +198,13 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password, role } = req.body;
-    console.log(`🔑 Login attempt: Email=[${email}] Password=[${password}] Role=[${role}]`);
+    console.log(`🔑 Login attempt: Email=[${email}] Role=[${role}]`);
 
-    const user = db.prepare(`SELECT * FROM users WHERE LOWER(email) = LOWER(?)`).get(email.trim());
+    const result = await query(
+      `SELECT * FROM users WHERE LOWER(email) = LOWER($1)`,
+      [email.trim()]
+    );
+    const user = result.rows[0];
 
     if (!user) {
       console.log(`❌ User not found: ${email}`);
@@ -233,66 +246,74 @@ app.post('/api/auth/login', async (req, res) => {
 // =====================
 
 // GET STUDENT LECTURES
-app.get('/api/lectures/student', (req, res) => {
+app.get('/api/lectures/student', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
 
     const decoded = jwt.verify(token, secret);
-    const student = db.prepare(`SELECT className, section FROM users WHERE id = ?`).get(decoded.userId);
+    const studentResult = await query(
+      `SELECT "className", section FROM users WHERE id = $1`,
+      [decoded.userId]
+    );
+    const student = studentResult.rows[0];
 
     if (!student) return res.status(500).json({ success: false, message: 'Student not found' });
 
-    const lectures = db.prepare(
-      `SELECT * FROM lectures WHERE UPPER(TRIM(className)) = UPPER(TRIM(?)) AND isCancelled = 0 ORDER BY startTime`
-    ).all(student.className);
+    const lectures = await query(
+      `SELECT * FROM lectures WHERE UPPER(TRIM("className")) = UPPER(TRIM($1)) AND "isCancelled" = 0 ORDER BY "startTime"`,
+      [student.className]
+    );
 
-    res.json(lectures);
+    res.json(lectures.rows);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // GET TEACHER LECTURES
-app.get('/api/lectures/teacher', (req, res) => {
+app.get('/api/lectures/teacher', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
 
     const decoded = jwt.verify(token, secret);
-    const lectures = db.prepare(
-      `SELECT * FROM lectures WHERE teacherName = (SELECT name FROM users WHERE id = ?) ORDER BY startTime`
-    ).all(decoded.userId);
+    const lectures = await query(
+      `SELECT * FROM lectures WHERE "teacherName" = (SELECT name FROM users WHERE id = $1) ORDER BY "startTime"`,
+      [decoded.userId]
+    );
 
-    res.json(lectures);
+    res.json(lectures.rows);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // GET TIMETABLE FOR SPECIFIC TEACHER
-app.get('/api/timetable/teacher', (req, res) => {
+app.get('/api/timetable/teacher', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
 
     const decoded = jwt.verify(token, secret);
-    const user = db.prepare(`SELECT name FROM users WHERE id = ?`).get(decoded.userId);
+    const userResult = await query(`SELECT name FROM users WHERE id = $1`, [decoded.userId]);
+    const user = userResult.rows[0];
 
     if (!user) return res.status(500).json({ success: false, message: 'User not found' });
 
-    const timetable = db.prepare(
-      `SELECT * FROM timetable WHERE teacherName = ? ORDER BY startTime ASC`
-    ).all(user.name);
+    const timetable = await query(
+      `SELECT * FROM timetable WHERE "teacherName" = $1 ORDER BY "startTime" ASC`,
+      [user.name]
+    );
 
-    res.json(timetable);
+    res.json(timetable.rows);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // CREATE LECTURE
-app.post('/api/lectures/create', (req, res) => {
+app.post('/api/lectures/create', async (req, res) => {
   try {
     const { subjectName, teacherName, className, section, startTime, endTime, roomNumber } = req.body;
 
@@ -300,14 +321,16 @@ app.post('/api/lectures/create', (req, res) => {
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
 
     const decoded = jwt.verify(token, secret);
-    const teacher = db.prepare(`SELECT name FROM users WHERE id = ?`).get(decoded.userId);
+    const teacherResult = await query(`SELECT name FROM users WHERE id = $1`, [decoded.userId]);
+    const teacher = teacherResult.rows[0];
 
     if (!teacher) return res.status(500).json({ success: false, message: 'Teacher not found' });
 
     const lectureId = generateId();
-    db.prepare(
-      `INSERT INTO lectures (id, subjectName, teacherName, className, section, startTime, endTime, roomNumber, lectureDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(lectureId, subjectName, teacherName || teacher.name, className, section, startTime, endTime, roomNumber, new Date().toISOString());
+    await query(
+      `INSERT INTO lectures (id, "subjectName", "teacherName", "className", section, "startTime", "endTime", "roomNumber", "lectureDate") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [lectureId, subjectName, teacherName || teacher.name, className, section, startTime, endTime, roomNumber, new Date().toISOString()]
+    );
 
     res.status(201).json({ success: true, message: 'Lecture created successfully', lectureId });
   } catch (error) {
@@ -316,7 +339,7 @@ app.post('/api/lectures/create', (req, res) => {
 });
 
 // CANCEL LECTURE
-app.put('/api/lectures/:lectureId/cancel', (req, res) => {
+app.put('/api/lectures/:lectureId/cancel', async (req, res) => {
   try {
     const { lectureId } = req.params;
     const { cancellationReason } = req.body;
@@ -324,8 +347,11 @@ app.put('/api/lectures/:lectureId/cancel', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
 
-    db.prepare(`UPDATE lectures SET isCancelled = 1, cancellationReason = ? WHERE id = ?`).run(cancellationReason, lectureId);
-    db.prepare(`DELETE FROM notifications WHERE lectureId = ?`).run(lectureId);
+    await query(
+      `UPDATE lectures SET "isCancelled" = 1, "cancellationReason" = $1 WHERE id = $2`,
+      [cancellationReason, lectureId]
+    );
+    await query(`DELETE FROM notifications WHERE "lectureId" = $1`, [lectureId]);
 
     res.json({ success: true, message: 'Lecture cancelled and related notifications removed' });
   } catch (error) {
@@ -338,7 +364,7 @@ app.put('/api/lectures/:lectureId/cancel', (req, res) => {
 // =====================
 
 // SCHEDULE NOTIFICATION
-app.post('/api/notifications/schedule', (req, res) => {
+app.post('/api/notifications/schedule', async (req, res) => {
   try {
     const { lectureId, title, message, notificationType, className, section, scheduledAt } = req.body;
 
@@ -348,24 +374,25 @@ app.post('/api/notifications/schedule', (req, res) => {
     const decoded = jwt.verify(token, secret);
     const teacherId = decoded.userId;
 
-    const students = db.prepare(
-      `SELECT id FROM users WHERE role = 'student' AND UPPER(TRIM(className)) = UPPER(TRIM(?)) AND UPPER(TRIM(section)) = UPPER(TRIM(?))`
-    ).all(className, section);
-
-    const insert = db.prepare(
-      `INSERT INTO notifications (id, studentId, lectureId, title, message, notificationType, scheduledAt) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    const students = await query(
+      `SELECT id FROM users WHERE role = 'student' AND UPPER(TRIM("className")) = UPPER(TRIM($1)) AND UPPER(TRIM(section)) = UPPER(TRIM($2))`,
+      [className, section]
     );
 
     const scheduledTime = scheduledAt || new Date().toISOString();
 
     // Insert for teacher tracking
-    insert.run(generateId(), teacherId, lectureId, title, message, notificationType, scheduledTime);
+    await query(
+      `INSERT INTO notifications (id, "studentId", "lectureId", title, message, "notificationType", "scheduledAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [generateId(), teacherId, lectureId, title, message, notificationType, scheduledTime]
+    );
 
     // Insert for all students
-    if (students && students.length > 0) {
-      students.forEach(student => {
-        insert.run(generateId(), student.id, lectureId, title, message, notificationType, scheduledTime);
-      });
+    for (const student of students.rows) {
+      await query(
+        `INSERT INTO notifications (id, "studentId", "lectureId", title, message, "notificationType", "scheduledAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [generateId(), student.id, lectureId, title, message, notificationType, scheduledTime]
+      );
     }
 
     res.status(201).json({ success: true, message: 'Scheduled successfully.' });
@@ -375,32 +402,33 @@ app.post('/api/notifications/schedule', (req, res) => {
   }
 });
 
-// DEBUG: GET ALL NOTIFICATIONS
-app.get('/api/debug/notifications', (req, res) => {
+// DEBUG: GET ALL NOTIFICATIONS (also used by UptimeRobot ping)
+app.get('/api/debug/notifications', async (req, res) => {
   try {
-    const rows = db.prepare(`SELECT * FROM notifications`).all();
-    res.json(rows);
+    const rows = await query(`SELECT * FROM notifications`);
+    res.json(rows.rows);
   } catch (err) {
-    res.status(500).json(err);
+    res.status(500).json({ error: err.message });
   }
 });
 
 // GET ALL NOTIFICATIONS FOR TEACHER
-app.get('/api/notifications/teacher', (req, res) => {
+app.get('/api/notifications/teacher', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
 
     const decoded = jwt.verify(token, secret);
-    const rows = db.prepare(
-      `SELECT n.*, l.subjectName, l.className, l.section 
+    const rows = await query(
+      `SELECT n.*, l."subjectName", l."className", l.section 
        FROM notifications n
-       LEFT JOIN lectures l ON n.lectureId = l.id
-       WHERE n.studentId = ?
-       ORDER BY n.scheduledAt DESC`
-    ).all(decoded.userId);
+       LEFT JOIN lectures l ON n."lectureId" = l.id
+       WHERE n."studentId" = $1
+       ORDER BY n."scheduledAt" DESC`,
+      [decoded.userId]
+    );
 
-    res.json(rows);
+    res.json(rows.rows);
   } catch (error) {
     console.error('❌ Error in getTeacherNotifications:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -408,21 +436,26 @@ app.get('/api/notifications/teacher', (req, res) => {
 });
 
 // DELETE NOTIFICATION
-app.delete('/api/notifications/:id', (req, res) => {
+app.delete('/api/notifications/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const row = db.prepare(`SELECT lectureId, title, message FROM notifications WHERE id = ?`).get(id);
+    const rowResult = await query(
+      `SELECT "lectureId", title, message FROM notifications WHERE id = $1`,
+      [id]
+    );
+    const row = rowResult.rows[0];
     if (!row) return res.status(404).json({ success: false, message: 'Notification not found' });
 
     if (row.lectureId) {
-      const result = db.prepare(
-        `DELETE FROM notifications WHERE lectureId = ? OR (title = ? AND message = ?)`
-      ).run(row.lectureId, row.title, row.message);
-      console.log(`[SYNC] Removed ${result.changes} notifications across all dashboards.`);
-      res.json({ success: true, message: `Notification cancelled for everyone (${result.changes} removed)` });
+      const result = await query(
+        `DELETE FROM notifications WHERE "lectureId" = $1 OR (title = $2 AND message = $3)`,
+        [row.lectureId, row.title, row.message]
+      );
+      console.log(`[SYNC] Removed ${result.rowCount} notifications across all dashboards.`);
+      res.json({ success: true, message: `Notification cancelled for everyone (${result.rowCount} removed)` });
     } else {
-      db.prepare(`DELETE FROM notifications WHERE id = ?`).run(id);
+      await query(`DELETE FROM notifications WHERE id = $1`, [id]);
       res.json({ success: true, message: 'Notification deleted' });
     }
   } catch (error) {
@@ -432,7 +465,7 @@ app.delete('/api/notifications/:id', (req, res) => {
 });
 
 // GET STUDENT NOTIFICATIONS
-app.get('/api/notifications/student', (req, res) => {
+app.get('/api/notifications/student', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
@@ -440,21 +473,22 @@ app.get('/api/notifications/student', (req, res) => {
     const decoded = jwt.verify(token, secret);
     const now = new Date().toISOString();
 
-    const notifications = db.prepare(
-      `SELECT * FROM notifications WHERE studentId = ? AND scheduledAt <= ? ORDER BY scheduledAt DESC`
-    ).all(decoded.userId, now);
+    const notifications = await query(
+      `SELECT * FROM notifications WHERE "studentId" = $1 AND "scheduledAt" <= $2 ORDER BY "scheduledAt" DESC`,
+      [decoded.userId, now]
+    );
 
-    res.json(notifications);
+    res.json(notifications.rows);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // MARK NOTIFICATION AS READ
-app.put('/api/notifications/:notificationId/read', (req, res) => {
+app.put('/api/notifications/:notificationId/read', async (req, res) => {
   try {
     const { notificationId } = req.params;
-    db.prepare(`UPDATE notifications SET isRead = 1 WHERE id = ?`).run(notificationId);
+    await query(`UPDATE notifications SET "isRead" = 1 WHERE id = $1`, [notificationId]);
     res.json({ success: true, message: 'Marked as read' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -466,7 +500,7 @@ app.put('/api/notifications/:notificationId/read', (req, res) => {
 // =====================
 
 // CREATE TIMETABLE ENTRY
-app.post('/api/timetable/create', (req, res) => {
+app.post('/api/timetable/create', async (req, res) => {
   try {
     const { subjectName, teacherName, className, section, day, startTime, endTime, roomNumber } = req.body;
 
@@ -474,14 +508,16 @@ app.post('/api/timetable/create', (req, res) => {
     if (!token) return res.status(401).json({ success: false, message: 'No token' });
 
     const decoded = jwt.verify(token, secret);
-    const user = db.prepare(`SELECT name FROM users WHERE id = ?`).get(decoded.userId);
+    const userResult = await query(`SELECT name FROM users WHERE id = $1`, [decoded.userId]);
+    const user = userResult.rows[0];
 
     if (!user) return res.status(500).json({ success: false, message: 'User not found' });
 
     const timetableId = generateId();
-    db.prepare(
-      `INSERT INTO timetable (id, subjectName, teacherName, className, section, day, startTime, endTime, roomNumber) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(timetableId, subjectName, teacherName || user.name, className, section, day, startTime, endTime, roomNumber);
+    await query(
+      `INSERT INTO timetable (id, "subjectName", "teacherName", "className", section, day, "startTime", "endTime", "roomNumber") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [timetableId, subjectName, teacherName || user.name, className, section, day, startTime, endTime, roomNumber]
+    );
 
     res.status(201).json({ success: true, message: 'Timetable entry created successfully' });
   } catch (error) {
@@ -490,36 +526,38 @@ app.post('/api/timetable/create', (req, res) => {
 });
 
 // GET TIMETABLE FOR CLASS
-app.get('/api/timetable/class/:className', (req, res) => {
+app.get('/api/timetable/class/:className', async (req, res) => {
   try {
     const { className } = req.params;
-    const entries = db.prepare(
-      `SELECT * FROM timetable WHERE UPPER(TRIM(className)) = UPPER(TRIM(?)) ORDER BY day, startTime`
-    ).all(className);
-    res.json(entries);
+    const entries = await query(
+      `SELECT * FROM timetable WHERE UPPER(TRIM("className")) = UPPER(TRIM($1)) ORDER BY day, "startTime"`,
+      [className]
+    );
+    res.json(entries.rows);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // GET TIMETABLE FOR SPECIFIC DAY
-app.get('/api/timetable/day/:className/:day', (req, res) => {
+app.get('/api/timetable/day/:className/:day', async (req, res) => {
   try {
     const { className, day } = req.params;
-    const entries = db.prepare(
-      `SELECT * FROM timetable WHERE UPPER(TRIM(className)) = UPPER(TRIM(?)) AND day = ? ORDER BY startTime`
-    ).all(className, day);
-    res.json(entries);
+    const entries = await query(
+      `SELECT * FROM timetable WHERE UPPER(TRIM("className")) = UPPER(TRIM($1)) AND day = $2 ORDER BY "startTime"`,
+      [className, day]
+    );
+    res.json(entries.rows);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // DELETE TIMETABLE ENTRY
-app.delete('/api/timetable/:timetableId', (req, res) => {
+app.delete('/api/timetable/:timetableId', async (req, res) => {
   try {
     const { timetableId } = req.params;
-    db.prepare(`DELETE FROM timetable WHERE id = ?`).run(timetableId);
+    await query(`DELETE FROM timetable WHERE id = $1`, [timetableId]);
     res.json({ success: true, message: 'Deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
