@@ -5,7 +5,7 @@ import '../models/lecture_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:5001';
+  static const String baseUrl = 'https://timetable-backend-soc3.onrender.com';
   static String? _token;
 
   static final Map<String, String> _headers = {
@@ -38,7 +38,7 @@ class ApiService {
           'password': password.trim(),
           'role': role,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
@@ -85,7 +85,7 @@ class ApiService {
           'className': className,
           'section': section,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 201 && data['success'] == true) {
@@ -103,7 +103,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/api/lectures/student'),
         headers: _headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body);
@@ -120,7 +120,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/api/lectures/teacher'),
         headers: _headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body);
@@ -154,7 +154,7 @@ class ApiService {
           'endTime': endTime,
           'roomNumber': roomNumber,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
 
       return jsonDecode(response.body);
     } catch (e) {
@@ -171,7 +171,7 @@ class ApiService {
         Uri.parse('$baseUrl/api/lectures/$lectureId/cancel'),
         headers: _headers,
         body: jsonEncode({'cancellationReason': reason}),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
       return jsonDecode(response.body);
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -200,7 +200,7 @@ class ApiService {
           'section': section,
           'scheduledAt': scheduledAt,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
       return jsonDecode(response.body);
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -212,7 +212,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/api/notifications/student'),
         headers: _headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -227,7 +227,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/api/notifications/teacher'),
         headers: _headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -297,7 +297,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/api/timetable/class/$className'),
         headers: _headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -312,7 +312,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/api/timetable/teacher'),
         headers: _headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -327,7 +327,7 @@ class ApiService {
       final response = await http.delete(
         Uri.parse('$baseUrl/api/timetable/$timetableId'),
         headers: _headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
       return jsonDecode(response.body);
     } catch (e) {
       return {'success': false};
@@ -355,7 +355,7 @@ class ApiService {
           'section': section,
           'scheduledAt': DateTime.now().toIso8601String(),
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
 
       return jsonDecode(response.body);
     } catch (e) {
