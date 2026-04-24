@@ -137,6 +137,10 @@ function generateId() {
 app.get('/api/health', (req, res) => {
   res.status(200).send('OK');
 });
+
+app.get('/test', (req, res) => {
+  res.send('TEST WORKING');
+});
 // =====================
 // AUTHENTICATION ROUTES
 // =====================
