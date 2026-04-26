@@ -213,6 +213,15 @@ app.post('/api/auth/login', async (req, res) => {
 
     console.log(`✅ User located: ${user.name} (${user.role})`);
 
+    // Strictly enforce role check
+    if (role && user.role !== role) {
+      console.log(`❌ Role mismatch: Attempted to login as ${role}, but user is ${user.role}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: `Invalid login role. Please login as a ${user.role}.` 
+      });
+    }
+
     const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) {
       return res.status(400).json({ success: false, message: 'Incorrect password' });
