@@ -12,6 +12,7 @@ import '../services/reminder_service.dart';
 import '../widgets/lecture_card.dart';
 import '../widgets/loading_widget.dart';
 import '../models/timetable_model.dart';
+import '../services/attendance_service.dart';
 import 'login_screen.dart';
 import '../main.dart'; // for global navigatorKey
 
@@ -143,39 +144,148 @@ class _StudentDashboardState extends State<StudentDashboard> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.calendar_month, color: Colors.white),
+            icon: const Icon(Icons.smart_toy, color: Colors.white),
+            tooltip: 'Aagewala Chat',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ViewTimetableScreen(
-                    className: authProvider.user?.className ?? 'SE',
-                    section: authProvider.user?.section ?? 'A',
-                  ),
-                ),
-              );
-            },
-            tooltip: 'View Weekly Timetable',
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const NotificationsScreen(),
-                ),
-              );
+              Navigator.pushNamed(context, '/aagewala');
             },
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authProvider.logout();
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
+            icon: const Icon(Icons.auto_awesome, color: Colors.white),
+            tooltip: 'AI Planner',
+            onPressed: () {
+              Navigator.pushNamed(context, '/ai_planner');
+            },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            tooltip: 'Options',
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (value) async {
+              switch (value) {
+                case 'timetable':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ViewTimetableScreen(
+                        className: authProvider.user?.className ?? 'SE',
+                        section: authProvider.user?.section ?? 'A',
+                      ),
+                    ),
+                  );
+                  break;
+                case 'notifications':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                  break;
+                case 'attendance':
+                  Navigator.pushNamed(context, '/attendance');
+                  break;
+                case 'leave':
+                  Navigator.pushNamed(context, '/student-leave');
+                  break;
+                case 'profile':
+                  _showEditProfileDialog(context, authProvider);
+                  break;
+                case 'logout':
+                  await authProvider.logout();
+                  if (mounted) {
+                    Navigator.of(context).pushReplacementNamed('/login');
+                  }
+                  break;
               }
             },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'timetable',
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_month, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Weekly Timetable',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'notifications',
+                child: Row(
+                  children: [
+                    Icon(Icons.notifications, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Notifications',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'attendance',
+                child: Row(
+                  children: [
+                    Icon(Icons.assignment_turned_in_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Attendance Tracking',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'leave',
+                child: Row(
+                  children: [
+                    Icon(Icons.sick_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Apply for Leave',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Edit Profile',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    const Icon(Icons.logout, color: Colors.redAccent),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Logout',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -402,6 +512,154 @@ class _StudentDashboardState extends State<StudentDashboard> {
         ),
         trailing: Icon(Icons.chevron_right, size: 16, color: Colors.teal.shade300),
       ),
+    );
+  }
+
+  void _showEditProfileDialog(BuildContext context, AuthProvider authProvider) async {
+    final email = authProvider.user?.email ?? '';
+    final currentRoll = await AttendanceService.getSavedRollNo(email) ?? '';
+    
+    if (!mounted) return;
+
+    final nameController = TextEditingController(text: authProvider.user?.name ?? '');
+    final emailController = TextEditingController(text: authProvider.user?.email ?? '');
+    final classController = TextEditingController(text: authProvider.user?.className ?? '');
+    final divisionController = TextEditingController(text: authProvider.user?.section ?? '');
+    final rollController = TextEditingController(text: currentRoll);
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.person_outline, color: Colors.teal.shade700),
+              const SizedBox(width: 8),
+              Text(
+                'Edit Profile',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    prefixIcon: Icon(Icons.person),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email Address',
+                    prefixIcon: Icon(Icons.email),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: rollController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Roll Number',
+                    prefixIcon: Icon(Icons.tag),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: classController,
+                        decoration: const InputDecoration(
+                          labelText: 'Class (e.g. SE)',
+                          prefixIcon: Icon(Icons.school),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: divisionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Division (e.g. A)',
+                          prefixIcon: Icon(Icons.class_),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final email = emailController.text.trim();
+                final className = classController.text.trim();
+                final division = divisionController.text.trim();
+                final roll = rollController.text.trim();
+
+                if (name.isEmpty || email.isEmpty || className.isEmpty || division.isEmpty || roll.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('All fields are required!'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
+
+                // Update details in AuthProvider
+                await authProvider.updateUserProfile(
+                  name: name,
+                  email: email,
+                  className: className,
+                  section: division,
+                );
+
+                // Update roll number in AttendanceService
+                await AttendanceService.saveRollNo(email, roll);
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Profile updated successfully!',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                      ),
+                      backgroundColor: Colors.green.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade600,
+              ),
+              child: Text(
+                'Save Changes',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

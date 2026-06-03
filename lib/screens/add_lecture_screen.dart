@@ -4,51 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../providers/lecture_provider.dart';
 
-// ─── Institute-specific dropdown data ───────────────────────────────────────
-const List<String> kSubjects = [
-  'CT',
-  'DBMS',
-  'OS',
-  'MDM (MCMP)',
-  'OE (FINTECH)',
-  'Mini Project',
-  'DT',
-  'BMD',
-  'Session',
-];
-
-const List<String> kProfessors = [
-  'Prof. Hardiki mam',
-  'Prof. Harsha mam',
-  'Prof. Avani mam',
-  'Prof. Veena mam',
-  'Prof. Swati mam',
-  'Prof. Shubhangi mam',
-  'Prof. Ashwini mam',
-  'Prof. Kiran sir',
-  'Prof. Richa mam',
-  'Prof. Deepali mam',
-  'HOD. Dr. Pravin sir',
-];
-
-const List<String> kClasses = ['SE'];
-
-const List<String> kSections = ['A', 'B'];
-
-const List<String> kRooms = [
-  '201',
-  '207',
-  '208A',
-  '208B',
-  '209',
-  '210',
-  '211',
-  '212',
-  '218L',
-  '219L',
-  '220L',
-];
-// ────────────────────────────────────────────────────────────────────────────
+const List<String> kClasses = ['11th', '12th', 'FE', 'SE', 'TE', 'BE'];
+const List<String> kSections = ['A', 'B', 'C', 'D', 'E'];
 
 class AddLectureScreen extends StatefulWidget {
   const AddLectureScreen({Key? key}) : super(key: key);
@@ -58,12 +15,16 @@ class AddLectureScreen extends StatefulWidget {
 }
 
 class _AddLectureScreenState extends State<AddLectureScreen> {
-  // Dropdown selections
-  String? _selectedSubject;
-  String? _selectedProfessor;
+  // Text controllers
+  final _subjectController = TextEditingController();
+  final _professorController = TextEditingController();
+  final _roomController = TextEditingController();
+
+  // Chip selections
   String? _selectedClass;
   String? _selectedSection;
-  String? _selectedRoom;
+
+  // Reminder
   String _selectedReminder = 'None';
 
   // Time
@@ -77,6 +38,14 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     '30 min before',
     '1 hour before',
   ];
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _professorController.dispose();
+    _roomController.dispose();
+    super.dispose();
+  }
 
   Future<void> _selectTime(bool isStart) async {
     final TimeOfDay? picked = await showTimePicker(
@@ -96,22 +65,20 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
   }
 
   void _createLecture(BuildContext context) async {
-    // Validation
-    if (_selectedSubject == null ||
-        _selectedProfessor == null ||
-        _selectedClass == null ||
-        _startTime.isEmpty ||
-        _endTime.isEmpty) {
+    final subject = _subjectController.text.trim();
+    final professor = _professorController.text.trim();
+    final room = _roomController.text.trim();
+
+    if (subject.isEmpty || professor.isEmpty || _selectedClass == null || _startTime.isEmpty || _endTime.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill all required fields'),
+          content: Text('Please fill Subject, Professor, Class, Start & End Time'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    // Time logic check
     try {
       final DateFormat format = DateFormat('h:mm a');
       final DateTime start = format.parse(_startTime);
@@ -132,13 +99,13 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     final lp = Provider.of<LectureProvider>(context, listen: false);
 
     final response = await lp.createLecture(
-      subjectName: _selectedSubject!,
-      teacherName: _selectedProfessor!,
+      subjectName: subject,
+      teacherName: professor,
       className: _selectedClass!,
       section: _selectedSection ?? '',
       startTime: _startTime,
       endTime: _endTime,
-      roomNumber: _selectedRoom ?? '',
+      roomNumber: room,
     );
 
     if (response['success'] == true) {
@@ -152,8 +119,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
 
           final DateFormat format = DateFormat('h:mm a');
           final DateTime pickedTime = format.parse(_startTime);
-          final lectureTime = DateTime(
-              now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
+          final lectureTime = DateTime(now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
 
           if (_selectedReminder == '10 min before') {
             reminderTime = lectureTime.subtract(const Duration(minutes: 10));
@@ -167,9 +133,8 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
 
           final scheduled = await lp.scheduleNotificationForClass(
             lectureId: lectureId.toString(),
-            title: 'Upcoming Lecture: $_selectedSubject',
-            message:
-                'Lecture starts at $_startTime in Room ${_selectedRoom ?? ''}',
+            title: 'Upcoming Lecture: $subject',
+            message: 'Lecture starts at $_startTime in Room $room',
             notificationType: 'reminder',
             className: _selectedClass!,
             section: _selectedSection ?? '',
@@ -187,8 +152,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
         if (!notificationSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'Lecture created, but reminder scheduling failed. Check connection.'),
+              content: Text('Lecture created, but reminder scheduling failed. Check connection.'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -206,8 +170,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                lp.error ?? 'Failed to create lecture. Check server connection.'),
+            content: Text(lp.error ?? 'Failed to create lecture. Check server connection.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -215,13 +178,50 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     }
   }
 
-  // ── Reusable dropdown builder ──────────────────────────────────────────────
-  Widget _buildDropdown<T>({
+  // ── Reusable labelled text field ──────────────────────────────────────────
+  Widget _buildTextField({
     required String label,
     required IconData icon,
-    required T? value,
-    required List<T> items,
-    required void Function(T?) onChanged,
+    required TextEditingController controller,
+    bool required = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          required ? '$label *' : label,
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLength: 50,
+          keyboardType: keyboardType,
+          style: GoogleFonts.poppins(fontSize: 14),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey[100],
+            prefixIcon: Icon(icon, color: Colors.teal.shade600, size: 20),
+            hintText: 'Type ${label.replaceAll(' *', '')}...',
+            hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            counterStyle: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Chip selector row ──────────────────────────────────────────────────────
+  Widget _buildChipSelector({
+    required String label,
+    required List<String> options,
+    required String? selected,
+    required void Function(String) onSelect,
     bool required = false,
   }) {
     return Column(
@@ -229,50 +229,31 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
       children: [
         Text(
           required ? '$label *' : label,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<T>(
-          value: value,
-          isExpanded: true,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.grey[100],
-            prefixIcon: Icon(icon, color: Colors.teal.shade600, size: 20),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.teal.shade400, width: 2),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          ),
-          hint: Text(
-            'Select ${label.replaceAll(' *', '')}',
-            style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-          ),
-          items: items.map((T item) {
-            return DropdownMenuItem<T>(
-              value: item,
-              child: Text(
-                item.toString(),
-                style: GoogleFonts.poppins(fontSize: 14),
-                overflow: TextOverflow.ellipsis,
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: options.map((opt) {
+            final isSelected = selected == opt;
+            return ChoiceChip(
+              label: Text(opt),
+              selected: isSelected,
+              selectedColor: Colors.teal.shade600,
+              backgroundColor: Colors.grey.shade100,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: isSelected ? Colors.teal.shade600 : Colors.grey.shade300),
               ),
+              labelStyle: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: isSelected ? Colors.white : Colors.teal.shade900,
+              ),
+              onSelected: (_) => onSelect(opt),
             );
           }).toList(),
-          onChanged: onChanged,
         ),
       ],
     );
@@ -283,14 +264,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
+        Text(label, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: () => _selectTime(isStart),
@@ -303,15 +277,11 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.access_time,
-                    color: Colors.teal.shade600, size: 20),
+                Icon(Icons.access_time, color: Colors.teal.shade600, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   time.isEmpty ? 'Select time' : time,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: time.isEmpty ? Colors.grey : Colors.black87,
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 13, color: time.isEmpty ? Colors.grey : Colors.black87),
                 ),
               ],
             ),
@@ -331,11 +301,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           'Add New Lecture',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
       body: SingleChildScrollView(
@@ -346,91 +312,72 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
+              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4)),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Subject ──────────────────────────────────────────────────
-              _buildDropdown<String>(
+
+              // ── Subject (TextField) ───────────────────────────────────────
+              _buildTextField(
                 label: 'Subject Name',
                 icon: Icons.subject,
-                value: _selectedSubject,
-                items: kSubjects,
+                controller: _subjectController,
                 required: true,
-                onChanged: (v) => setState(() => _selectedSubject = v),
               ),
               const SizedBox(height: 20),
 
-              // ── Professor ─────────────────────────────────────────────────
-              _buildDropdown<String>(
+              // ── Professor (TextField) ─────────────────────────────────────
+              _buildTextField(
                 label: 'Professor Name',
                 icon: Icons.person,
-                value: _selectedProfessor,
-                items: kProfessors,
+                controller: _professorController,
                 required: true,
-                onChanged: (v) => setState(() => _selectedProfessor = v),
               ),
               const SizedBox(height: 20),
 
-              // ── Class ─────────────────────────────────────────────────────
-              _buildDropdown<String>(
+              // ── Class (Chips: 11th → BE) ───────────────────────────────────
+              _buildChipSelector(
                 label: 'Class',
-                icon: Icons.class_,
-                value: _selectedClass,
-                items: kClasses,
+                options: kClasses,
+                selected: _selectedClass,
                 required: true,
-                onChanged: (v) => setState(() => _selectedClass = v),
+                onSelect: (v) => setState(() => _selectedClass = v),
               ),
               const SizedBox(height: 20),
 
-              // ── Section ───────────────────────────────────────────────────
-              _buildDropdown<String>(
-                label: 'Section',
-                icon: Icons.apps,
-                value: _selectedSection,
-                items: kSections,
-                onChanged: (v) => setState(() => _selectedSection = v),
+              // ── Section (Chips: A → E) ─────────────────────────────────────
+              _buildChipSelector(
+                label: 'Section / Division',
+                options: kSections,
+                selected: _selectedSection,
+                onSelect: (v) => setState(() => _selectedSection = v),
               ),
               const SizedBox(height: 20),
 
-              // ── Start / End Time ──────────────────────────────────────────
+              // ── Start / End Time ───────────────────────────────────────────
               Row(
                 children: [
-                  Expanded(
-                      child:
-                          _buildTimePicker('Start Time *', _startTime, true)),
+                  Expanded(child: _buildTimePicker('Start Time *', _startTime, true)),
                   const SizedBox(width: 16),
-                  Expanded(
-                      child:
-                          _buildTimePicker('End Time *', _endTime, false)),
+                  Expanded(child: _buildTimePicker('End Time *', _endTime, false)),
                 ],
               ),
               const SizedBox(height: 20),
 
-              // ── Room ──────────────────────────────────────────────────────
-              _buildDropdown<String>(
+              // ── Room (TextField) ───────────────────────────────────────────
+              _buildTextField(
                 label: 'Room Number',
                 icon: Icons.meeting_room,
-                value: _selectedRoom,
-                items: kRooms,
-                onChanged: (v) => setState(() => _selectedRoom = v),
+                controller: _roomController,
               ),
               const SizedBox(height: 20),
 
-              // ── Notification Reminder ─────────────────────────────────────
+              // ── Notification Reminder (kept as dropdown) ───────────────────
               Text(
                 'Notification Reminder',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
@@ -438,67 +385,43 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.grey[100],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: Colors.teal.shade400, width: 2),
-                  ),
-                  prefixIcon: Icon(Icons.notifications_active,
-                      color: Colors.teal.shade600),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
+                  prefixIcon: Icon(Icons.notifications_active, color: Colors.teal.shade600),
                 ),
                 items: _reminderOptions.map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
-                    child:
-                        Text(value, style: GoogleFonts.poppins(fontSize: 14)),
+                    child: Text(value, style: GoogleFonts.poppins(fontSize: 14)),
                   );
                 }).toList(),
-                onChanged: (newValue) {
-                  setState(() => _selectedReminder = newValue!);
-                },
+                onChanged: (newValue) => setState(() => _selectedReminder = newValue!),
               ),
               const SizedBox(height: 30),
 
-              // ── Submit Button ─────────────────────────────────────────────
+              // ── Submit ─────────────────────────────────────────────────────
               Consumer<LectureProvider>(
                 builder: (context, lp, _) {
                   return SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed:
-                          lp.isLoading ? null : () => _createLecture(context),
+                      onPressed: lp.isLoading ? null : () => _createLecture(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal.shade600,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         disabledBackgroundColor: Colors.grey.shade400,
                       ),
                       child: lp.isLoading
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : Text(
                               'Create Lecture',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                             ),
                     ),
                   );

@@ -17,6 +17,8 @@ dependencies:
   google_fonts: ^6.1.0
   flutter_local_notifications: ^17.2.2
   timezone: ^0.9.1
+  google_generative_ai: ^0.4.7
+  file_picker: ^11.0.2
 
 dev_dependencies:
   flutter_test:

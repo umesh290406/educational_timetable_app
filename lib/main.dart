@@ -11,6 +11,11 @@ import 'screens/notifications_screen.dart';
 import 'screens/schedule_reminder_screen.dart';
 import 'screens/upload_timetable_screen.dart';
 import 'screens/view_timetable_screen.dart';
+import 'screens/aagewala_chat_screen.dart';
+import 'screens/attendance_screen.dart';
+import 'screens/ai_planner_screen.dart';
+import 'screens/student_leave_screen.dart';
+import 'screens/teacher_leave_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/lecture_provider.dart';
 
@@ -55,6 +60,11 @@ class MyApp extends StatelessWidget {
           '/teacher': (context) => const TeacherDashboard(),
           '/notifications': (context) => const NotificationsScreen(),
           '/upload-timetable': (context) => const UploadTimetableScreen(),
+          '/aagewala': (context) => const AagewalaChatScreen(),
+          '/attendance': (context) => const AttendanceScreen(),
+          '/ai_planner': (context) => const AiPlannerScreen(),
+          '/student-leave': (context) => const StudentLeaveScreen(),
+          '/teacher-leave': (context) => const TeacherLeaveScreen(),
           '/view-timetable': (context) => const ViewTimetableScreen(
                 className: 'SE',
                 section: 'A',

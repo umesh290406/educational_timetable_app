@@ -63,53 +63,147 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ],
         ),
         actions: [
-    IconButton(
-      icon: const Icon(Icons.calendar_month, color: Colors.white),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ViewTimetableScreen(
-              className: authProvider.user?.className ?? 'SE',
-              section: authProvider.user?.section ?? 'A',
-            ),
-          ),
-        );
-      },
-      tooltip: 'View Weekly Timetable',
-    ),
-    IconButton(
-      icon: const Icon(Icons.add_to_queue, color: Colors.white),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const UploadTimetableScreen(),
-          ),
-        );
-      },
-      tooltip: 'Add to Timetable',
-    ),
-    IconButton(
-      icon: const Icon(Icons.notifications_paused_outlined, color: Colors.white),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const ManageRemindersScreen(),
-          ),
-        );
-      },
-      tooltip: 'Manage Reminders',
-    ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authProvider.logout();
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
+            icon: const Icon(Icons.smart_toy, color: Colors.white),
+            tooltip: 'Aagewala Chat',
+            onPressed: () {
+              Navigator.pushNamed(context, '/aagewala');
+            },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            tooltip: 'Options',
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (value) async {
+              switch (value) {
+                case 'timetable':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ViewTimetableScreen(
+                        className: authProvider.user?.className ?? 'SE',
+                        section: authProvider.user?.section ?? 'A',
+                      ),
+                    ),
+                  );
+                  break;
+                case 'upload':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const UploadTimetableScreen(),
+                    ),
+                  );
+                  break;
+                case 'reminders':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ManageRemindersScreen(),
+                    ),
+                  );
+                  break;
+                case 'attendance':
+                  Navigator.pushNamed(context, '/attendance');
+                  break;
+                case 'leave':
+                  Navigator.pushNamed(context, '/teacher-leave');
+                  break;
+                case 'logout':
+                  await authProvider.logout();
+                  if (mounted) {
+                    Navigator.of(context).pushReplacementNamed('/login');
+                  }
+                  break;
               }
             },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'timetable',
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_month, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Weekly Timetable',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'upload',
+                child: Row(
+                  children: [
+                    Icon(Icons.add_to_queue, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Upload Timetable',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'reminders',
+                child: Row(
+                  children: [
+                    Icon(Icons.notifications_paused_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Manage Reminders',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'attendance',
+                child: Row(
+                  children: [
+                    Icon(Icons.assignment_turned_in_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Attendance Tracking',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'leave',
+                child: Row(
+                  children: [
+                    Icon(Icons.badge_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Student Leave Management',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    const Icon(Icons.logout, color: Colors.redAccent),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Logout',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

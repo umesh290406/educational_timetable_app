@@ -33,21 +33,25 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
   String _selectedReminder = '30min';
   bool _isScheduling = false;
 
-  // Dropdowns — pre-filled from parent, but overridable
-  late String? _selectedSubject;
-  late String? _selectedClass;
-  late String? _selectedSection;
+  // Subject as free text
+  final _subjectController = TextEditingController();
+
+  // Chip selections — pre-filled from parent
+  String? _selectedClass;
+  String? _selectedSection;
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill with values passed from the lecture card
-    _selectedSubject =
-        kSubjects.contains(widget.lectureName) ? widget.lectureName : null;
-    _selectedClass =
-        kClasses.contains(widget.className) ? widget.className : null;
-    _selectedSection =
-        kSections.contains(widget.section) ? widget.section : null;
+    _subjectController.text = widget.lectureName;
+    _selectedClass = kClasses.contains(widget.className) ? widget.className : null;
+    _selectedSection = kSections.contains(widget.section) ? widget.section : null;
+  }
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    super.dispose();
   }
 
   Future<DateTime> _parseTime(String timeStr) async {
@@ -77,13 +81,11 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
   }
 
   Future<void> _scheduleReminder() async {
-    // Validate dropdowns
-    if (_selectedSubject == null ||
-        _selectedClass == null ||
-        _selectedSection == null) {
+    final subject = _subjectController.text.trim();
+    if (subject.isEmpty || _selectedClass == null || _selectedSection == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select subject, class, and section'),
+          content: Text('Please enter subject and select class & section'),
           backgroundColor: Colors.red,
         ),
       );
@@ -121,18 +123,17 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
       // Schedule local notification for teacher (skipped on web)
       await ReminderService.scheduleNotification(
         id: widget.lectureId.hashCode,
-        title: '⏰ Reminder: ${_selectedSubject!}',
+        title: '⏰ Reminder: $subject',
         body: 'Your class starts at ${widget.startTime}',
         scheduledDate: reminderTime,
         payload: widget.lectureId,
       );
 
-      // Push notification to all students in the class via backend
       if (mounted) {
         await Provider.of<LectureProvider>(context, listen: false)
             .scheduleNotificationForClass(
           lectureId: widget.lectureId,
-          title: 'Upcoming Lecture: ${_selectedSubject!}',
+          title: 'Upcoming Lecture: $subject',
           message:
               'Your lecture starts at ${widget.startTime} | Class: ${_selectedClass!} ${_selectedSection!}',
           notificationType: 'reminder',
@@ -311,40 +312,76 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ── Subject Dropdown ───────────────────────────────────────────
-            _buildDropdown<String>(
-              label: 'Subject Name',
-              icon: Icons.subject,
-              value: _selectedSubject,
-              items: kSubjects,
-              onChanged: (v) => setState(() => _selectedSubject = v),
+            // ── Subject TextField ──────────────────────────────────────────
+            Text(
+              'Subject Name',
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _subjectController,
+              maxLength: 50,
+              style: GoogleFonts.poppins(fontSize: 14),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.grey[50],
+                hintText: 'e.g. DBMS, Mathematics, OS...',
+                hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+                prefixIcon: Icon(Icons.subject, color: Colors.teal.shade600, size: 20),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                counterStyle: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
+              ),
             ),
             const SizedBox(height: 16),
 
-            // ── Class & Section Row ────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDropdown<String>(
-                    label: 'Class',
-                    icon: Icons.class_,
-                    value: _selectedClass,
-                    items: kClasses,
-                    onChanged: (v) => setState(() => _selectedClass = v),
+            // ── Class Chips ────────────────────────────────────────────────
+            Text('Class', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: kClasses.map((cls) {
+                final isSelected = _selectedClass == cls;
+                return ChoiceChip(
+                  label: Text(cls),
+                  selected: isSelected,
+                  selectedColor: Colors.teal.shade600,
+                  backgroundColor: Colors.grey.shade100,
+                  labelStyle: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isSelected ? Colors.white : Colors.teal.shade900,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDropdown<String>(
-                    label: 'Section',
-                    icon: Icons.apps,
-                    value: _selectedSection,
-                    items: kSections,
-                    onChanged: (v) =>
-                        setState(() => _selectedSection = v),
+                  onSelected: (_) => setState(() => _selectedClass = cls),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Section Chips ──────────────────────────────────────────────
+            Text('Section / Division', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: kSections.map((sec) {
+                final isSelected = _selectedSection == sec;
+                return ChoiceChip(
+                  label: Text('Div $sec'),
+                  selected: isSelected,
+                  selectedColor: Colors.teal.shade600,
+                  backgroundColor: Colors.grey.shade100,
+                  labelStyle: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isSelected ? Colors.white : Colors.teal.shade900,
                   ),
-                ),
-              ],
+                  onSelected: (_) => setState(() => _selectedSection = sec),
+                );
+              }).toList(),
             ),
             const SizedBox(height: 28),
 

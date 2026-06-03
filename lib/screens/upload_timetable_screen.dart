@@ -12,17 +12,27 @@ class UploadTimetableScreen extends StatefulWidget {
 }
 
 class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
+  // Text controllers
+  final _subjectController = TextEditingController();
+  final _professorController = TextEditingController();
+  final _roomController = TextEditingController();
+
   // Dropdowns
-  String? _selectedSubject;
-  String? _selectedProfessor;
   String? _selectedClass;
   String? _selectedSection;
-  String? _selectedRoom;
   String _selectedDay = 'Monday';
 
   // Time
   String _startTime = '';
   String _endTime = '';
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _professorController.dispose();
+    _roomController.dispose();
+    super.dispose();
+  }
 
   bool _isUploading = false;
 
@@ -53,11 +63,15 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
   }
 
   void _uploadTimetable() async {
-    if (_selectedSubject == null ||
-        _selectedProfessor == null ||
+    final subject = _subjectController.text.trim();
+    final professor = _professorController.text.trim();
+    final room = _roomController.text.trim();
+
+    if (subject.isEmpty ||
+        professor.isEmpty ||
         _selectedClass == null ||
         _selectedSection == null ||
-        _selectedRoom == null ||
+        room.isEmpty ||
         _startTime.isEmpty ||
         _endTime.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,14 +89,14 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
         Provider.of<LectureProvider>(context, listen: false);
 
     final success = await lectureProvider.createTimetable(
-      subjectName: _selectedSubject!,
-      teacherName: _selectedProfessor!,
+      subjectName: subject,
+      teacherName: professor,
       className: _selectedClass!,
       section: _selectedSection!,
       day: _selectedDay,
       startTime: _startTime,
       endTime: _endTime,
-      roomNumber: _selectedRoom!,
+      roomNumber: room,
     );
 
     setState(() => _isUploading = false);
@@ -97,11 +111,11 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
         );
         // Reset form for next entry
         setState(() {
-          _selectedSubject = null;
-          _selectedProfessor = null;
+          _subjectController.clear();
+          _professorController.clear();
+          _roomController.clear();
           _selectedClass = null;
           _selectedSection = null;
-          _selectedRoom = null;
           _selectedDay = 'Monday';
           _startTime = '';
           _endTime = '';
@@ -121,6 +135,44 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
         );
       }
     }
+  }
+
+  // ── Reusable labelled text field ──────────────────────────────────────────
+  Widget _buildTextField({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    bool required = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          required ? '$label *' : label,
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLength: 50,
+          keyboardType: keyboardType,
+          style: GoogleFonts.poppins(fontSize: 14),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey[50],
+            prefixIcon: Icon(icon, color: Colors.teal.shade600, size: 20),
+            hintText: 'Type ${label.replaceAll(' *', '')}...',
+            hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            counterStyle: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
+          ),
+        ),
+      ],
+    );
   }
 
   // ── Reusable styled dropdown ───────────────────────────────────────────────
@@ -283,24 +335,20 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
               const SizedBox(height: 24),
 
               // ── Subject ────────────────────────────────────────────────
-              _buildDropdown<String>(
+              _buildTextField(
                 label: 'Subject Name',
                 icon: Icons.subject,
-                value: _selectedSubject,
-                items: kSubjects,
+                controller: _subjectController,
                 required: true,
-                onChanged: (v) => setState(() => _selectedSubject = v),
               ),
               const SizedBox(height: 18),
 
               // ── Professor ──────────────────────────────────────────────
-              _buildDropdown<String>(
+              _buildTextField(
                 label: 'Professor Name',
                 icon: Icons.person,
-                value: _selectedProfessor,
-                items: kProfessors,
+                controller: _professorController,
                 required: true,
-                onChanged: (v) => setState(() => _selectedProfessor = v),
               ),
               const SizedBox(height: 18),
 
@@ -353,13 +401,11 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
               const SizedBox(height: 18),
 
               // ── Room ───────────────────────────────────────────────────
-              _buildDropdown<String>(
+              _buildTextField(
                 label: 'Room Number',
                 icon: Icons.meeting_room,
-                value: _selectedRoom,
-                items: kRooms,
+                controller: _roomController,
                 required: true,
-                onChanged: (v) => setState(() => _selectedRoom = v),
               ),
               const SizedBox(height: 32),
 

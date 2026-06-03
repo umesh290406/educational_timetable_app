@@ -142,8 +142,22 @@ async function initDB() {
 initDB();
 
 // =====================
-// HEALTH CHECK
+// HEALTH & STATUS CHECK
 // =====================
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Timetable API Server is live 🚀',
+    database: 'PostgreSQL (Neon)',
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      timetable: '/api/timetable',
+      lectures: '/api/lectures'
+    }
+  });
+});
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running!' });

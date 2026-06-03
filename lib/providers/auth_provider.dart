@@ -123,6 +123,29 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> updateUserProfile({
+    required String name,
+    required String email,
+    required String className,
+    required String section,
+  }) async {
+    if (_user == null) return;
+    
+    _user = User(
+      id: _user!.id,
+      name: name.trim(),
+      email: email.trim(),
+      role: _user!.role,
+      className: className.trim(),
+      section: section.trim(),
+      token: _user!.token,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userData', jsonEncode(_user!.toJson()));
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     try {
       final prefs = await SharedPreferences.getInstance();
