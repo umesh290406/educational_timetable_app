@@ -194,6 +194,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 ),
                 _buildHelpItem(
                   context,
+                  icon: Icons.assignment_outlined,
+                  iconColor: Colors.red.shade600,
+                  title: 'Exam Schedule',
+                  description: 'Go to Options -> "Exam Schedule" to view your class\'s exam timetable and download it as a CSV file.',
+                ),
+                _buildHelpItem(
+                  context,
                   icon: Icons.person_outline,
                   iconColor: Colors.indigo,
                   title: 'Edit Profile',
@@ -359,6 +366,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 case 'leave':
                   Navigator.pushNamed(context, '/student-leave');
                   break;
+                case 'exam':
+                  Navigator.pushNamed(context, '/student-exam');
+                  break;
                 case 'profile':
                   _showEditProfileDialog(context, authProvider);
                   break;
@@ -418,6 +428,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     const SizedBox(width: 12),
                     Text(
                       'Apply for Leave',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'exam',
+                child: Row(
+                  children: [
+                    Icon(Icons.assignment_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Exam Schedule',
                       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ],

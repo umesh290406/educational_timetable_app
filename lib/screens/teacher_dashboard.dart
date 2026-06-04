@@ -107,6 +107,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 ),
                 _buildHelpItem(
                   context,
+                  icon: Icons.assignment_outlined,
+                  iconColor: Colors.red.shade600,
+                  title: 'Manage Exam Schedules',
+                  description: 'Go to Options -> "Manage Exam Schedules" to schedule exam timetables, assign subjects, set venues, and track student exam attendance.',
+                ),
+                _buildHelpItem(
+                  context,
                   icon: Icons.smart_toy,
                   iconColor: Colors.indigo,
                   title: 'Aagewala Assistant',
@@ -273,6 +280,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 case 'leave':
                   Navigator.pushNamed(context, '/teacher-leave');
                   break;
+                case 'exam':
+                  Navigator.pushNamed(context, '/teacher-exam');
+                  break;
                 case 'logout':
                   await authProvider.logout();
                   if (mounted) {
@@ -342,6 +352,19 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     const SizedBox(width: 12),
                     Text(
                       'Student Leave Management',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'exam',
+                child: Row(
+                  children: [
+                    Icon(Icons.assignment_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Manage Exam Schedules',
                       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ],

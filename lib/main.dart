@@ -16,6 +16,8 @@ import 'screens/attendance_screen.dart';
 import 'screens/ai_planner_screen.dart';
 import 'screens/student_leave_screen.dart';
 import 'screens/teacher_leave_screen.dart';
+import 'screens/student_exam_screen.dart';
+import 'screens/teacher_exam_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/lecture_provider.dart';
 import 'providers/theme_provider.dart';
@@ -79,6 +81,8 @@ class MyApp extends StatelessWidget {
               '/ai_planner': (context) => const AiPlannerScreen(),
               '/student-leave': (context) => const StudentLeaveScreen(),
               '/teacher-leave': (context) => const TeacherLeaveScreen(),
+              '/student-exam': (context) => const StudentExamScreen(),
+              '/teacher-exam': (context) => const TeacherExamScreen(),
               '/view-timetable': (context) => const ViewTimetableScreen(
                     className: 'SE',
                     section: 'A',
