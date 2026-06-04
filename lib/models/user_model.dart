@@ -5,6 +5,7 @@ class User {
   final String role;
   final String? className;
   final String? section;
+  final String? specialization;
   final String? token;
 
   User({
@@ -14,6 +15,7 @@ class User {
     required this.role,
     this.className,
     this.section,
+    this.specialization,
     this.token,
   });
 
@@ -25,6 +27,7 @@ class User {
       role: json['role'] ?? 'student',
       className: json['className'],
       section: json['section'],
+      specialization: json['specialization'],
       token: json['token'],
     );
   }
@@ -37,6 +40,7 @@ class User {
       'role': role,
       'className': className,
       'section': section,
+      'specialization': specialization,
       'token': token,
     };
   }

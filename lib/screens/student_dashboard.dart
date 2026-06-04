@@ -13,6 +13,7 @@ import '../widgets/lecture_card.dart';
 import '../widgets/loading_widget.dart';
 import '../models/timetable_model.dart';
 import '../services/attendance_service.dart';
+import '../utils/class_config.dart';
 import 'login_screen.dart';
 import '../main.dart'; // for global navigatorKey
 import '../providers/theme_provider.dart';
@@ -708,143 +709,234 @@ class _StudentDashboardState extends State<StudentDashboard> {
     
     if (!mounted) return;
 
+    final initialClassData = ClassConfig.parseClassAndSpecialization(authProvider.user?.className);
+    String dialogClass = initialClassData['class'] ?? '11th';
+    String dialogSpecialization = initialClassData['specialization'] ?? 'Commerce';
+    String dialogSection = authProvider.user?.section ?? 'A';
+
     final nameController = TextEditingController(text: authProvider.user?.name ?? '');
     final emailController = TextEditingController(text: authProvider.user?.email ?? '');
-    final classController = TextEditingController(text: authProvider.user?.className ?? '');
-    final divisionController = TextEditingController(text: authProvider.user?.section ?? '');
     final rollController = TextEditingController(text: currentRoll);
 
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.person_outline, color: Colors.teal.shade700),
-              const SizedBox(width: 8),
-              Text(
-                'Edit Profile',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        final theme = Theme.of(context);
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final specializations = ClassConfig.getSpecializationsForClass(dialogClass);
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person),
+              title: Row(
+                children: [
+                  Icon(Icons.person_outline, color: Colors.teal.shade700),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Edit Profile',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: rollController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Roll Number',
-                    prefixIcon: Icon(Icons.tag),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: classController,
-                        decoration: const InputDecoration(
-                          labelText: 'Class (e.g. SE)',
-                          prefixIcon: Icon(Icons.school),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Email Address',
+                        prefixIcon: Icon(Icons.email),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: rollController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Roll Number',
+                        prefixIcon: Icon(Icons.tag),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Class Selection dropdown
+                    Text(
+                      'Class Name',
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade400),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: dialogClass,
+                          isExpanded: true,
+                          items: ClassConfig.classes.map((cls) {
+                            return DropdownMenuItem(
+                              value: cls,
+                              child: Text(cls, style: GoogleFonts.poppins(fontSize: 14)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() {
+                                dialogClass = val;
+                                final newSpecs = ClassConfig.getSpecializationsForClass(val);
+                                dialogSpecialization = newSpecs.isNotEmpty ? newSpecs[0] : '';
+                              });
+                            }
+                          },
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: divisionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Division (e.g. A)',
-                          prefixIcon: Icon(Icons.class_),
+                    const SizedBox(height: 12),
+
+                    if (specializations.isNotEmpty) ...[
+                      Text(
+                        'Specialization / Branch',
+                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: dialogSpecialization,
+                            isExpanded: true,
+                            items: specializations.map((spec) {
+                              return DropdownMenuItem(
+                                value: spec,
+                                child: Text(spec, style: GoogleFonts.poppins(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  dialogSpecialization = val;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    Text(
+                      'Division (Section)',
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade400),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: dialogSection,
+                          isExpanded: true,
+                          items: ClassConfig.sections.map((sec) {
+                            return DropdownMenuItem(
+                              value: sec,
+                              child: Text('Section $sec', style: GoogleFonts.poppins(fontSize: 14)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() {
+                                dialogSection = val;
+                              });
+                            }
+                          },
                         ),
                       ),
                     ),
                   ],
                 ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    final email = emailController.text.trim();
+                    final roll = rollController.text.trim();
+
+                    if (name.isEmpty || email.isEmpty || roll.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('All fields are required!'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    final combinedClass = ClassConfig.combineClassAndSpecialization(dialogClass, dialogSpecialization);
+
+                    // Update details in AuthProvider
+                    await authProvider.updateUserProfile(
+                      name: name,
+                      email: email,
+                      className: combinedClass,
+                      section: dialogSection,
+                      specialization: dialogSpecialization,
+                    );
+
+                    // Update roll number in AttendanceService
+                    await AttendanceService.saveRollNo(email, roll);
+
+                    if (mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Profile updated successfully!',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                          ),
+                          backgroundColor: Colors.green.shade600,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade600,
+                  ),
+                  child: Text(
+                    'Save Changes',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                final email = emailController.text.trim();
-                final className = classController.text.trim();
-                final division = divisionController.text.trim();
-                final roll = rollController.text.trim();
-
-                if (name.isEmpty || email.isEmpty || className.isEmpty || division.isEmpty || roll.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('All fields are required!'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                  return;
-                }
-
-                // Update details in AuthProvider
-                await authProvider.updateUserProfile(
-                  name: name,
-                  email: email,
-                  className: className,
-                  section: division,
-                );
-
-                // Update roll number in AttendanceService
-                await AttendanceService.saveRollNo(email, roll);
-
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Profile updated successfully!',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                      ),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade600,
-              ),
-              child: Text(
-                'Save Changes',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );

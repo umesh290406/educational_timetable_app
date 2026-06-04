@@ -3,9 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../providers/lecture_provider.dart';
-
-const List<String> kClasses = ['11th', '12th', 'FE', 'SE', 'TE', 'BE'];
-const List<String> kSections = ['A', 'B', 'C', 'D', 'E'];
+import '../utils/class_config.dart';
 
 class AddLectureScreen extends StatefulWidget {
   const AddLectureScreen({Key? key}) : super(key: key);
@@ -20,9 +18,10 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
   final _professorController = TextEditingController();
   final _roomController = TextEditingController();
 
-  // Chip selections
-  String? _selectedClass;
-  String? _selectedSection;
+  // Class selection
+  String _selectedClass = '11th';
+  String _selectedSpecialization = 'Commerce';
+  String _selectedSection = 'A';
 
   // Reminder
   String _selectedReminder = 'None';
@@ -69,10 +68,10 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     final professor = _professorController.text.trim();
     final room = _roomController.text.trim();
 
-    if (subject.isEmpty || professor.isEmpty || _selectedClass == null || _startTime.isEmpty || _endTime.isEmpty) {
+    if (subject.isEmpty || professor.isEmpty || _startTime.isEmpty || _endTime.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill Subject, Professor, Class, Start & End Time'),
+          content: Text('Please fill Subject, Professor, Start & End Time'),
           backgroundColor: Colors.red,
         ),
       );
@@ -97,12 +96,13 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     }
 
     final lp = Provider.of<LectureProvider>(context, listen: false);
+    final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
 
     final response = await lp.createLecture(
       subjectName: subject,
       teacherName: professor,
-      className: _selectedClass!,
-      section: _selectedSection ?? '',
+      className: combinedClass,
+      section: _selectedSection,
       startTime: _startTime,
       endTime: _endTime,
       roomNumber: room,
@@ -136,8 +136,8 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
             title: 'Upcoming Lecture: $subject',
             message: 'Lecture starts at $_startTime in Room $room',
             notificationType: 'reminder',
-            className: _selectedClass!,
-            section: _selectedSection ?? '',
+            className: combinedClass,
+            section: _selectedSection,
             scheduledDate: reminderTime.toUtc(),
           );
 
@@ -296,6 +296,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -340,22 +341,112 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Class (Chips: 11th → BE) ───────────────────────────────────
-              _buildChipSelector(
-                label: 'Class',
-                options: kClasses,
-                selected: _selectedClass,
-                required: true,
-                onSelect: (v) => setState(() => _selectedClass = v),
+              // ── Class Dropdown ───────────────────────────────────
+              Text(
+                'Class Name *',
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedClass,
+                    isExpanded: true,
+                    items: ClassConfig.classes.map((cls) {
+                      return DropdownMenuItem(
+                        value: cls,
+                        child: Text(cls, style: GoogleFonts.poppins(fontSize: 14)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedClass = val;
+                          final newSpecs = ClassConfig.getSpecializationsForClass(val);
+                          _selectedSpecialization = newSpecs.isNotEmpty ? newSpecs[0] : '';
+                        });
+                      }
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
 
-              // ── Section (Chips: A → E) ─────────────────────────────────────
-              _buildChipSelector(
-                label: 'Section / Division',
-                options: kSections,
-                selected: _selectedSection,
-                onSelect: (v) => setState(() => _selectedSection = v),
+              // ── Specialization Dropdown ───────────────────────────────────
+              if (ClassConfig.getSpecializationsForClass(_selectedClass).isNotEmpty) ...[
+                Text(
+                  'Specialization / Branch *',
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade400),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedSpecialization,
+                      isExpanded: true,
+                      items: ClassConfig.getSpecializationsForClass(_selectedClass).map((spec) {
+                        return DropdownMenuItem(
+                          value: spec,
+                          child: Text(spec, style: GoogleFonts.poppins(fontSize: 14)),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedSpecialization = val;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Section Dropdown ─────────────────────────────────────
+              Text(
+                'Section / Division *',
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedSection,
+                    isExpanded: true,
+                    items: ClassConfig.sections.map((sec) {
+                      return DropdownMenuItem(
+                        value: sec,
+                        child: Text('Section $sec', style: GoogleFonts.poppins(fontSize: 14)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedSection = val;
+                        });
+                      }
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
 

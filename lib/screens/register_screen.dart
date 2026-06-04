@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_input_field.dart';
+import '../utils/class_config.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,17 +17,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _classController = TextEditingController();
-  final _sectionController = TextEditingController();
+  
   String _selectedRole = 'student';
+  String _selectedClass = '11th';
+  String _selectedSection = 'A';
+  String _selectedSpecialization = 'Commerce';
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _classController.dispose();
-    _sectionController.dispose();
     super.dispose();
   }
 
@@ -39,13 +40,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final combinedClass = _selectedRole == 'student'
+        ? ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)
+        : null;
+    final combinedSection = _selectedRole == 'student' ? _selectedSection : null;
+
     final success = await authProvider.register(
       name: _nameController.text,
       email: _emailController.text,
       password: _passwordController.text,
       role: _selectedRole,
-      className: _classController.text.isEmpty ? null : _classController.text,
-      section: _sectionController.text.isEmpty ? null : _sectionController.text,
+      className: combinedClass,
+      section: combinedSection,
+      specialization: _selectedRole == 'student' ? _selectedSpecialization : null,
     );
 
     if (success) {
@@ -72,8 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _showSnackBar(BuildContext context, String message,
-      {bool isError = false}) {
+  void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -85,6 +91,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final specializations = ClassConfig.getSpecializationsForClass(_selectedClass);
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -117,7 +126,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         Container(
                           width: 80,
                           height: 80,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.white,
                           ),
@@ -230,10 +239,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
+                      color: theme.cardColor,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         CustomInputField(
                           label: 'Full Name *',
@@ -257,20 +267,115 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           isPassword: true,
                           prefixIcon: Icons.lock,
                         ),
-                        const SizedBox(height: 20),
-                        CustomInputField(
-                          label: 'Class Name',
-                          hint: 'e.g., 10-A',
-                          controller: _classController,
-                          prefixIcon: Icons.class_,
-                        ),
-                        const SizedBox(height: 20),
-                        CustomInputField(
-                          label: 'Section',
-                          hint: 'e.g., A',
-                          controller: _sectionController,
-                          prefixIcon: Icons.apps,
-                        ),
+                        
+                        if (_selectedRole == 'student') ...[
+                          const SizedBox(height: 20),
+                          // Class selection
+                          Text(
+                            'Class Name *',
+                            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade400),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedClass,
+                                isExpanded: true,
+                                items: ClassConfig.classes.map((cls) {
+                                  return DropdownMenuItem(
+                                    value: cls,
+                                    child: Text(cls, style: GoogleFonts.poppins(fontSize: 14)),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedClass = val;
+                                      final newSpecs = ClassConfig.getSpecializationsForClass(val);
+                                      _selectedSpecialization = newSpecs.isNotEmpty ? newSpecs[0] : '';
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+
+                          if (specializations.isNotEmpty) ...[
+                            const SizedBox(height: 20),
+                            // Specialization selection
+                            Text(
+                              'Specialization / Branch *',
+                              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade400),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedSpecialization,
+                                  isExpanded: true,
+                                  items: specializations.map((spec) {
+                                    return DropdownMenuItem(
+                                      value: spec,
+                                      child: Text(spec, style: GoogleFonts.poppins(fontSize: 14)),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() {
+                                        _selectedSpecialization = val;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 20),
+                          // Section selection
+                          Text(
+                            'Division (Section) *',
+                            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade400),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedSection,
+                                isExpanded: true,
+                                items: ClassConfig.sections.map((sec) {
+                                  return DropdownMenuItem(
+                                    value: sec,
+                                    child: Text('Section $sec', style: GoogleFonts.poppins(fontSize: 14)),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedSection = val;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                        
                         const SizedBox(height: 24),
                         // Register Button
                         Consumer<AuthProvider>(
@@ -295,9 +400,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         height: 20,
                                         width: 20,
                                         child: CircularProgressIndicator(
-                                          valueColor:
-                                              AlwaysStoppedAnimation(
-                                                  Colors.white),
+                                          valueColor: AlwaysStoppedAnimation(Colors.white),
                                           strokeWidth: 2,
                                         ),
                                       )

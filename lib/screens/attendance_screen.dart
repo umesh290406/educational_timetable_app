@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../services/attendance_service.dart';
+import '../utils/class_config.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({Key? key}) : super(key: key);
@@ -22,7 +23,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   Map<String, dynamic> _studentStats = {};
 
   // Teacher State
-  String _selectedClass = 'SE';
+  String _selectedClass = '11th';
+  String _selectedSpecialization = 'Commerce';
   String _selectedSection = 'A';
   String _selectedSubject = '';
   DateTime _selectedDate = DateTime.now();
@@ -33,9 +35,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   bool _isLoadingTeacher = false;
 
   final TextEditingController _subjectController = TextEditingController();
-
-  static const List<String> _classes = ['11th', '12th', 'FE', 'SE', 'TE', 'BE'];
-  static const List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   void initState() {
@@ -72,7 +71,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     _studentRollNo = roll;
     
     if (roll != null) {
-      final className = auth.user?.className ?? 'SE';
+      final className = auth.user?.className ?? '11th - Commerce';
       final section = auth.user?.section ?? 'A';
       
       // Proactively sync student registration to teacher roster
@@ -98,7 +97,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     if (roll.trim().isEmpty) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final email = auth.user?.email ?? '';
-    final className = auth.user?.className ?? 'SE';
+    final className = auth.user?.className ?? '11th - Commerce';
     final section = auth.user?.section ?? 'A';
     
     await AttendanceService.saveRollNo(
@@ -114,9 +113,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   // ================= TEACHER LOGIC =================
   Future<void> _loadTeacherData() async {
     setState(() => _isLoadingTeacher = true);
-    final rosterList = await AttendanceService.getRoster(_selectedClass, _selectedSection);
-    final sessionsList = await AttendanceService.getMarkedSessions(_selectedClass, _selectedSection);
-    final reportList = await AttendanceService.getClassReport(_selectedClass, _selectedSection);
+    final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
+    final rosterList = await AttendanceService.getRoster(combinedClass, _selectedSection);
+    final sessionsList = await AttendanceService.getMarkedSessions(combinedClass, _selectedSection);
+    final reportList = await AttendanceService.getClassReport(combinedClass, _selectedSection);
 
     setState(() {
       _roster = rosterList;
@@ -131,6 +131,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   Future<void> _saveAttendance() async {
     setState(() => _isLoadingTeacher = true);
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
 
     final records = _roster.map((student) {
       return AttendanceRecord(
@@ -140,7 +141,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         subjectName: _selectedSubject,
         date: dateStr,
         status: _markedStatus[student.rollNo] ?? 'Present',
-        className: _selectedClass,
+        className: combinedClass,
         section: _selectedSection,
       );
     }).toList();
@@ -164,8 +165,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
 
   Future<void> _deleteSession(String subject, String date) async {
     setState(() => _isLoadingTeacher = true);
+    final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
     await AttendanceService.deleteAttendanceBatch(
-      className: _selectedClass,
+      className: combinedClass,
       section: _selectedSection,
       subjectName: subject,
       date: date,
@@ -231,7 +233,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   rollNo: rollController.text.trim(),
                   name: nameController.text.trim(),
                 );
-                await AttendanceService.addStudentToRoster(_selectedClass, _selectedSection, newStudent);
+                final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
+                await AttendanceService.addStudentToRoster(combinedClass, _selectedSection, newStudent);
                 if (!mounted) return;
                 Navigator.pop(context);
                 _loadTeacherData();
@@ -699,57 +702,102 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
-                  // CLASS chip row
-                  Text('Class', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.teal.shade800)),
+                  // Class select dropdown
+                  Text('Class Name', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.teal.shade800)),
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: _classes.map((cls) {
-                      final selected = _selectedClass == cls;
-                      return ChoiceChip(
-                        label: Text(cls),
-                        selected: selected,
-                        selectedColor: Colors.teal.shade600,
-                        backgroundColor: Colors.grey.shade100,
-                        labelStyle: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: selected ? Colors.white : Colors.teal.shade900,
-                        ),
-                        onSelected: (_) {
-                          setState(() => _selectedClass = cls);
-                          _loadTeacherData();
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedClass,
+                        isExpanded: true,
+                        items: ClassConfig.classes.map((cls) {
+                          return DropdownMenuItem(
+                            value: cls,
+                            child: Text(cls, style: GoogleFonts.poppins(fontSize: 14)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedClass = val;
+                              final newSpecs = ClassConfig.getSpecializationsForClass(val);
+                              _selectedSpecialization = newSpecs.isNotEmpty ? newSpecs[0] : '';
+                            });
+                            _loadTeacherData();
+                          }
                         },
-                      );
-                    }).toList(),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 14),
 
-                  // SECTION chip row
+                  if (ClassConfig.getSpecializationsForClass(_selectedClass).isNotEmpty) ...[
+                    Text('Specialization / Branch', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.teal.shade800)),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedSpecialization,
+                          isExpanded: true,
+                          items: ClassConfig.getSpecializationsForClass(_selectedClass).map((spec) {
+                            return DropdownMenuItem(
+                              value: spec,
+                              child: Text(spec, style: GoogleFonts.poppins(fontSize: 14)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _selectedSpecialization = val;
+                              });
+                              _loadTeacherData();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
+                  // SECTION select dropdown
                   Text('Section / Division', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.teal.shade800)),
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: _sections.map((sec) {
-                      final selected = _selectedSection == sec;
-                      return ChoiceChip(
-                        label: Text('Div $sec'),
-                        selected: selected,
-                        selectedColor: Colors.teal.shade600,
-                        backgroundColor: Colors.grey.shade100,
-                        labelStyle: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: selected ? Colors.white : Colors.teal.shade900,
-                        ),
-                        onSelected: (_) {
-                          setState(() => _selectedSection = sec);
-                          _loadTeacherData();
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedSection,
+                        isExpanded: true,
+                        items: ClassConfig.sections.map((sec) {
+                          return DropdownMenuItem(
+                            value: sec,
+                            child: Text('Section $sec', style: GoogleFonts.poppins(fontSize: 14)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedSection = val;
+                            });
+                            _loadTeacherData();
+                          }
                         },
-                      );
-                    }).toList(),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -847,7 +895,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
 
           _roster.isEmpty
               ? _buildEmptyState(
-                  'No students found for $_selectedClass - Div $_selectedSection.\n'
+                  'No students found for ${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)} - Div $_selectedSection.\n'
                   'Students will appear here automatically once they log in with matching class & division.',
                 )
               : ListView.builder(
@@ -934,7 +982,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               },
               icon: const Icon(Icons.save, color: Colors.white),
               label: Text(
-                'Save Attendance  ($_selectedClass-$_selectedSection · ${_selectedSubject.isEmpty ? "No Subject" : _selectedSubject})',
+                'Save Attendance  (${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)}-$_selectedSection · ${_selectedSubject.isEmpty ? "No Subject" : _selectedSubject})',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
@@ -964,7 +1012,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Active: $_selectedClass - $_selectedSection',
+                'Active: ${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)} - $_selectedSection',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900),
               ),
               Text(
@@ -1084,7 +1132,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           ),
           const SizedBox(height: 10),
           _markedSessions.isEmpty
-              ? _buildEmptyState('No attendance logs marked yet for class $_selectedClass - Section $_selectedSection.')
+              ? _buildEmptyState('No attendance logs marked yet for class ${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)} - Section $_selectedSection.')
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -1159,7 +1207,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Class Roster: $_selectedClass - $_selectedSection',
+                'Class Roster: ${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)} - $_selectedSection',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900),
               ),
               ElevatedButton.icon(
@@ -1191,7 +1239,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                           child: Text(student.rollNo, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                         title: Text(student.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Roll No: ${student.rollNo} | Class: $_selectedClass-$_selectedSection'),
+                        subtitle: Text('Roll No: ${student.rollNo} | Class: ${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)}-$_selectedSection'),
                         trailing: IconButton(
                           icon: const Icon(Icons.edit, color: Colors.teal),
                           onPressed: () {
@@ -1215,7 +1263,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                     onPressed: () async {
                                       if (nameController.text.trim().isNotEmpty) {
                                         final edited = AttendanceStudent(rollNo: student.rollNo, name: nameController.text.trim());
-                                        await AttendanceService.addStudentToRoster(_selectedClass, _selectedSection, edited);
+                                        final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
+                                        await AttendanceService.addStudentToRoster(combinedClass, _selectedSection, edited);
                                         if (!mounted) return;
                                         Navigator.pop(context);
                                         _loadTeacherData();

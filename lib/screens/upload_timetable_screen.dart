@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/lecture_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'add_lecture_screen.dart'; // reuse dropdown constants
+import '../utils/class_config.dart';
 
 class UploadTimetableScreen extends StatefulWidget {
   const UploadTimetableScreen({Key? key}) : super(key: key);
@@ -18,8 +18,9 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
   final _roomController = TextEditingController();
 
   // Dropdowns
-  String? _selectedClass;
-  String? _selectedSection;
+  String _selectedClass = '11th';
+  String _selectedSpecialization = 'Commerce';
+  String _selectedSection = 'A';
   String _selectedDay = 'Monday';
 
   // Time
@@ -69,8 +70,6 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
 
     if (subject.isEmpty ||
         professor.isEmpty ||
-        _selectedClass == null ||
-        _selectedSection == null ||
         room.isEmpty ||
         _startTime.isEmpty ||
         _endTime.isEmpty) {
@@ -88,11 +87,13 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
     final lectureProvider =
         Provider.of<LectureProvider>(context, listen: false);
 
+    final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
+
     final success = await lectureProvider.createTimetable(
       subjectName: subject,
       teacherName: professor,
-      className: _selectedClass!,
-      section: _selectedSection!,
+      className: combinedClass,
+      section: _selectedSection,
       day: _selectedDay,
       startTime: _startTime,
       endTime: _endTime,
@@ -350,25 +351,52 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
               ),
               const SizedBox(height: 18),
 
-              // ── Class ──────────────────────────────────────────────────
+              // ── Class Dropdown ──────────────────────────────────────────────────
               _buildDropdown<String>(
-                label: 'Class',
+                label: 'Class Name',
                 icon: Icons.class_,
                 value: _selectedClass,
-                items: kClasses,
+                items: ClassConfig.classes,
                 required: true,
-                onChanged: (v) => setState(() => _selectedClass = v),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _selectedClass = v;
+                      final newSpecs = ClassConfig.getSpecializationsForClass(v);
+                      _selectedSpecialization = newSpecs.isNotEmpty ? newSpecs[0] : '';
+                    });
+                  }
+                },
               ),
               const SizedBox(height: 18),
+
+              // ── Specialization Dropdown ──────────────────────────────────────────
+              if (ClassConfig.getSpecializationsForClass(_selectedClass).isNotEmpty) ...[
+                _buildDropdown<String>(
+                  label: 'Specialization / Branch',
+                  icon: Icons.assignment_turned_in,
+                  value: _selectedSpecialization,
+                  items: ClassConfig.getSpecializationsForClass(_selectedClass),
+                  required: true,
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _selectedSpecialization = v;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 18),
+              ],
 
               // ── Section ────────────────────────────────────────────────
               _buildDropdown<String>(
                 label: 'Section',
                 icon: Icons.apps,
                 value: _selectedSection,
-                items: kSections,
+                items: ClassConfig.sections,
                 required: true,
-                onChanged: (v) => setState(() => _selectedSection = v),
+                onChanged: (v) => setState(() => _selectedSection = v ?? 'A'),
               ),
               const SizedBox(height: 18),
 

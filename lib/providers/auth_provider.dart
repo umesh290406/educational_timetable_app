@@ -84,6 +84,7 @@ class AuthProvider extends ChangeNotifier {
     required String role,
     String? className,
     String? section,
+    String? specialization,
   }) async {
     try {
       _isLoading = true;
@@ -100,7 +101,17 @@ class AuthProvider extends ChangeNotifier {
       );
 
       if (result['success']) {
-        _user = result['user'];
+        final apiUser = result['user'] as User;
+        _user = User(
+          id: apiUser.id,
+          name: apiUser.name,
+          email: apiUser.email,
+          role: apiUser.role,
+          className: apiUser.className,
+          section: apiUser.section,
+          specialization: specialization,
+          token: apiUser.token,
+        );
         _isLoggedIn = true;
         
         final prefs = await SharedPreferences.getInstance();
@@ -128,6 +139,7 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String className,
     required String section,
+    required String specialization,
   }) async {
     if (_user == null) return;
     
@@ -138,6 +150,7 @@ class AuthProvider extends ChangeNotifier {
       role: _user!.role,
       className: className.trim(),
       section: section.trim(),
+      specialization: specialization.trim(),
       token: _user!.token,
     );
 

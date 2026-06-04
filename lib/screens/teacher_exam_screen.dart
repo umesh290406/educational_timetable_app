@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/exam_service.dart';
 import '../services/attendance_service.dart';
 import '../widgets/loading_widget.dart';
+import '../utils/class_config.dart';
 
 class TeacherExamScreen extends StatefulWidget {
   const TeacherExamScreen({super.key});
@@ -14,12 +15,10 @@ class TeacherExamScreen extends StatefulWidget {
 
 class _TeacherExamScreenState extends State<TeacherExamScreen> {
   String _selectedClass = '11th';
+  String _selectedSpecialization = 'Commerce';
   String _selectedSection = 'A';
   List<ExamSchedule> _exams = [];
   bool _isLoading = false;
-
-  final List<String> _classes = ['11th', '12th', 'FE', 'SE', 'TE', 'BE'];
-  final List<String> _sections = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   void initState() {
@@ -29,7 +28,8 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
 
   Future<void> _loadExams() async {
     setState(() => _isLoading = true);
-    final exams = await ExamService.getExamsForClass(_selectedClass, _selectedSection);
+    final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
+    final exams = await ExamService.getExamsForClass(combinedClass, _selectedSection);
     setState(() {
       _exams = exams;
       _isLoading = false;
@@ -42,6 +42,7 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
     final subjectController = TextEditingController();
     final venueController = TextEditingController();
     String dialogClass = _selectedClass;
+    String dialogSpecialization = _selectedSpecialization;
     String dialogSection = _selectedSection;
     DateTime? selectedDate;
     TimeOfDay? startTime;
@@ -53,6 +54,7 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final theme = Theme.of(context);
+            final specializations = ClassConfig.getSpecializationsForClass(dialogClass);
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               backgroundColor: theme.cardColor,
@@ -68,42 +70,98 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                     shrinkWrap: true,
                     children: [
                       // Class Select
-                      Text('Class', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text('Class Name', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        children: _classes.map((c) {
-                          final isSel = dialogClass == c;
-                          return ChoiceChip(
-                            label: Text(c, style: GoogleFonts.poppins(fontSize: 12)),
-                            selected: isSel,
-                            selectedColor: Colors.teal.shade600,
-                            labelStyle: TextStyle(color: isSel ? Colors.white : theme.colorScheme.onSurface),
-                            onSelected: (val) {
-                              if (val) setDialogState(() => dialogClass = c);
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: dialogClass,
+                            isExpanded: true,
+                            items: ClassConfig.classes.map((cls) {
+                              return DropdownMenuItem(
+                                value: cls,
+                                child: Text(cls, style: GoogleFonts.poppins(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  dialogClass = val;
+                                  final newSpecs = ClassConfig.getSpecializationsForClass(val);
+                                  dialogSpecialization = newSpecs.isNotEmpty ? newSpecs[0] : '';
+                                });
+                              }
                             },
-                          );
-                        }).toList(),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12),
 
+                      if (specializations.isNotEmpty) ...[
+                        Text('Specialization / Branch', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade400),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: dialogSpecialization,
+                              isExpanded: true,
+                              items: specializations.map((spec) {
+                                return DropdownMenuItem(
+                                  value: spec,
+                                  child: Text(spec, style: GoogleFonts.poppins(fontSize: 14)),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setDialogState(() {
+                                    dialogSpecialization = val;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
                       // Section Select
-                      Text('Section', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text('Section / Division', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        children: _sections.map((s) {
-                          final isSel = dialogSection == s;
-                          return ChoiceChip(
-                            label: Text('Sec $s', style: GoogleFonts.poppins(fontSize: 12)),
-                            selected: isSel,
-                            selectedColor: Colors.teal.shade600,
-                            labelStyle: TextStyle(color: isSel ? Colors.white : theme.colorScheme.onSurface),
-                            onSelected: (val) {
-                              if (val) setDialogState(() => dialogSection = s);
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: dialogSection,
+                            isExpanded: true,
+                            items: ClassConfig.sections.map((sec) {
+                              return DropdownMenuItem(
+                                value: sec,
+                                child: Text('Section $sec', style: GoogleFonts.poppins(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  dialogSection = val;
+                                });
+                              }
                             },
-                          );
-                        }).toList(),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
 
@@ -231,8 +289,9 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                       return;
                     }
 
+                    final combinedClass = ClassConfig.combineClassAndSpecialization(dialogClass, dialogSpecialization);
                     await ExamService.createExam(
-                      className: dialogClass,
+                      className: combinedClass,
                       section: dialogSection,
                       subjectName: subjectController.text.trim(),
                       examDate: DateFormat('yyyy-MM-dd').format(selectedDate!),
@@ -459,86 +518,137 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
         children: [
           // Filter section
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             color: Colors.teal.shade600.withOpacity(0.08),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Select Class',
-                        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedClass,
-                            isExpanded: true,
-                            items: _classes.map((c) {
-                              return DropdownMenuItem(
-                                value: c,
-                                child: Text(c, style: GoogleFonts.poppins(fontSize: 13)),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _selectedClass = val);
-                                _loadExams();
-                              }
-                            },
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select Class',
+                            style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
                           ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: theme.cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedClass,
+                                isExpanded: true,
+                                items: ClassConfig.classes.map((c) {
+                                  return DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c, style: GoogleFonts.poppins(fontSize: 13)),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedClass = val;
+                                      final specs = ClassConfig.getSpecializationsForClass(val);
+                                      _selectedSpecialization = specs.isNotEmpty ? specs[0] : '';
+                                    });
+                                    _loadExams();
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (ClassConfig.getSpecializationsForClass(_selectedClass).isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Specialization',
+                              style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: theme.cardColor,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedSpecialization,
+                                  isExpanded: true,
+                                  items: ClassConfig.getSpecializationsForClass(_selectedClass).map((spec) {
+                                    return DropdownMenuItem(
+                                      value: spec,
+                                      child: Text(spec, style: GoogleFonts.poppins(fontSize: 13)),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() {
+                                        _selectedSpecialization = val;
+                                      });
+                                      _loadExams();
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Select Section',
-                        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedSection,
-                            isExpanded: true,
-                            items: _sections.map((s) {
-                              return DropdownMenuItem(
-                                value: s,
-                                child: Text('Sec $s', style: GoogleFonts.poppins(fontSize: 13)),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _selectedSection = val);
-                                _loadExams();
-                              }
-                            },
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select Section',
+                            style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: theme.cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedSection,
+                                isExpanded: true,
+                                items: ClassConfig.sections.map((s) {
+                                  return DropdownMenuItem(
+                                    value: s,
+                                    child: Text('Sec $s', style: GoogleFonts.poppins(fontSize: 13)),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() => _selectedSection = val);
+                                    _loadExams();
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),

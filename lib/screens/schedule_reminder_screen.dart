@@ -4,7 +4,7 @@ import '../providers/lecture_provider.dart';
 import '../services/reminder_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'add_lecture_screen.dart'; // reuse dropdown constants
+import '../utils/class_config.dart';
 
 class ScheduleReminderScreen extends StatefulWidget {
   final String lectureId;
@@ -36,16 +36,19 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
   // Subject as free text
   final _subjectController = TextEditingController();
 
-  // Chip selections — pre-filled from parent
-  String? _selectedClass;
-  String? _selectedSection;
+  // Selections
+  String _selectedClass = '11th';
+  String _selectedSpecialization = 'Commerce';
+  String _selectedSection = 'A';
 
   @override
   void initState() {
     super.initState();
     _subjectController.text = widget.lectureName;
-    _selectedClass = kClasses.contains(widget.className) ? widget.className : null;
-    _selectedSection = kSections.contains(widget.section) ? widget.section : null;
+    final initialClassData = ClassConfig.parseClassAndSpecialization(widget.className);
+    _selectedClass = initialClassData['class'] ?? '11th';
+    _selectedSpecialization = initialClassData['specialization'] ?? 'Commerce';
+    _selectedSection = widget.section.isNotEmpty ? widget.section : 'A';
   }
 
   @override
@@ -82,10 +85,10 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
 
   Future<void> _scheduleReminder() async {
     final subject = _subjectController.text.trim();
-    if (subject.isEmpty || _selectedClass == null || _selectedSection == null) {
+    if (subject.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter subject and select class & section'),
+          content: Text('Please enter subject'),
           backgroundColor: Colors.red,
         ),
       );
@@ -130,15 +133,16 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
       );
 
       if (mounted) {
+        final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
         await Provider.of<LectureProvider>(context, listen: false)
             .scheduleNotificationForClass(
           lectureId: widget.lectureId,
           title: 'Upcoming Lecture: $subject',
           message:
-              'Your lecture starts at ${widget.startTime} | Class: ${_selectedClass!} ${_selectedSection!}',
+              'Your lecture starts at ${widget.startTime} | Class: $combinedClass Section $_selectedSection',
           notificationType: 'reminder',
-          className: _selectedClass!,
-          section: _selectedSection!,
+          className: combinedClass,
+          section: _selectedSection,
           scheduledDate: reminderTime.toUtc(),
         );
       }
@@ -337,51 +341,112 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── Class Chips ────────────────────────────────────────────────
-            Text('Class', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+            // ── Class Dropdown ──────────────────────────────────────────────────
+            Text(
+              'Class Name *',
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: kClasses.map((cls) {
-                final isSelected = _selectedClass == cls;
-                return ChoiceChip(
-                  label: Text(cls),
-                  selected: isSelected,
-                  selectedColor: Colors.teal.shade600,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                  labelStyle: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: isSelected ? Colors.white : Colors.teal.shade900,
-                  ),
-                  onSelected: (_) => setState(() => _selectedClass = cls),
-                );
-              }).toList(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade400),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedClass,
+                  isExpanded: true,
+                  items: ClassConfig.classes.map((cls) {
+                    return DropdownMenuItem(
+                      value: cls,
+                      child: Text(cls, style: GoogleFonts.poppins(fontSize: 14)),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedClass = val;
+                        final newSpecs = ClassConfig.getSpecializationsForClass(val);
+                        _selectedSpecialization = newSpecs.isNotEmpty ? newSpecs[0] : '';
+                      });
+                    }
+                  },
+                ),
+              ),
             ),
             const SizedBox(height: 16),
 
-            // ── Section Chips ──────────────────────────────────────────────
-            Text('Section / Division', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: kSections.map((sec) {
-                final isSelected = _selectedSection == sec;
-                return ChoiceChip(
-                  label: Text('Div $sec'),
-                  selected: isSelected,
-                  selectedColor: Colors.teal.shade600,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                  labelStyle: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: isSelected ? Colors.white : Colors.teal.shade900,
+            // ── Specialization Dropdown ──────────────────────────────────────────
+            if (ClassConfig.getSpecializationsForClass(_selectedClass).isNotEmpty) ...[
+              Text(
+                'Specialization / Branch *',
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedSpecialization,
+                    isExpanded: true,
+                    items: ClassConfig.getSpecializationsForClass(_selectedClass).map((spec) {
+                      return DropdownMenuItem(
+                        value: spec,
+                        child: Text(spec, style: GoogleFonts.poppins(fontSize: 14)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedSpecialization = val;
+                        });
+                      }
+                    },
                   ),
-                  onSelected: (_) => setState(() => _selectedSection = sec),
-                );
-              }).toList(),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── Section Dropdown ──────────────────────────────────────────────────
+            Text(
+              'Section / Division *',
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade400),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedSection,
+                  isExpanded: true,
+                  items: ClassConfig.sections.map((sec) {
+                    return DropdownMenuItem(
+                      value: sec,
+                      child: Text('Section $sec', style: GoogleFonts.poppins(fontSize: 14)),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedSection = val;
+                      });
+                    }
+                  },
+                ),
+              ),
             ),
             const SizedBox(height: 28),
 
