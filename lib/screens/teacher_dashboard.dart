@@ -114,6 +114,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 ),
                 _buildHelpItem(
                   context,
+                  icon: Icons.people_alt_outlined,
+                  iconColor: Colors.blueAccent,
+                  title: 'Student Roster',
+                  description: 'Tap the student group icon in the app bar to view, add, or edit detailed student profiles (Roll No, Name, Contact, Address, Birthday).',
+                ),
+                _buildHelpItem(
+                  context,
                   icon: Icons.smart_toy,
                   iconColor: Colors.indigo,
                   title: 'Aagewala Assistant',
@@ -220,6 +227,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.people_alt_outlined, color: Colors.white),
+            tooltip: 'Student Roster',
+            onPressed: () {
+              Navigator.pushNamed(context, '/teacher-roster');
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.smart_toy, color: Colors.white),
             tooltip: 'Aagewala Chat',

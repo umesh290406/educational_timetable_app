@@ -18,6 +18,7 @@ import 'screens/student_leave_screen.dart';
 import 'screens/teacher_leave_screen.dart';
 import 'screens/student_exam_screen.dart';
 import 'screens/teacher_exam_screen.dart';
+import 'screens/teacher_roster_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/lecture_provider.dart';
 import 'providers/theme_provider.dart';
@@ -74,6 +75,7 @@ class MyApp extends StatelessWidget {
               '/teacher-leave': (context) => const TeacherLeaveScreen(),
               '/student-exam': (context) => const StudentExamScreen(),
               '/teacher-exam': (context) => const TeacherExamScreen(),
+              '/teacher-roster': (context) => const TeacherRosterScreen(),
               '/view-timetable': (context) => const ViewTimetableScreen(
                     className: 'SE',
                     section: 'A',
