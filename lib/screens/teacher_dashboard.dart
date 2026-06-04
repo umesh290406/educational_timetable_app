@@ -33,6 +33,155 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     });
   }
 
+  void _showHowToUseDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: theme.cardColor,
+          title: Row(
+            children: [
+              Icon(Icons.help_outline, color: Colors.teal.shade600, size: 28),
+              const SizedBox(width: 10),
+              Text(
+                'How to Use the App',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(
+                  'Welcome to your Timetable Portal! Here is how you can manage your schedule and interact with students as a Teacher:',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.add,
+                  iconColor: Colors.teal,
+                  title: 'Create One-off Lecture',
+                  description: 'Tap the "+" button at the bottom-right of your screen to schedule a new, one-off lecture for any class.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.add_to_queue,
+                  iconColor: Colors.blue,
+                  title: 'Upload Timetable',
+                  description: 'Tap the top-right Options menu (three dots) -> "Upload Timetable" to add recurring weekly classes for your schedule.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.timer_outlined,
+                  iconColor: Colors.orange,
+                  title: 'Schedule Reminders',
+                  description: 'Tap the clock icon next to any of your scheduled one-off lectures to set notifications for students beforehand.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.assignment_turned_in_outlined,
+                  iconColor: Colors.green,
+                  title: 'Attendance Tracking',
+                  description: 'Go to Options -> "Attendance Tracking" to mark attendance for a class or view previous records.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.badge_outlined,
+                  iconColor: Colors.purple,
+                  title: 'Student Leave Management',
+                  description: 'Go to Options -> "Student Leave Management" to review, approve, or reject student leave requests.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.smart_toy,
+                  iconColor: Colors.indigo,
+                  title: 'Aagewala Assistant',
+                  description: 'Tap the robot icon in the top app bar to query Aagewala AI about your schedule or profile details.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Got it!',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHelpItem(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+  }) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface.withOpacity(0.65),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -220,17 +369,36 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const AddLectureScreen(),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: FloatingActionButton(
+                heroTag: 'how_to_use_teacher',
+                onPressed: () => _showHowToUseDialog(context),
+                backgroundColor: Colors.teal.shade600,
+                child: const Icon(Icons.help_outline, color: Colors.white),
+              ),
             ),
-          );
-        },
-        backgroundColor: Colors.teal.shade600,
-        child: const Icon(Icons.add),
+            FloatingActionButton(
+              heroTag: 'add_lecture_teacher',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AddLectureScreen(),
+                  ),
+                );
+              },
+              backgroundColor: Colors.teal.shade600,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
+          ],
+        ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: RefreshIndicator(
         onRefresh: () async {
           final lp = Provider.of<LectureProvider>(context, listen: false);

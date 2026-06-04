@@ -113,6 +113,162 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
+  void _showHowToUseDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: theme.cardColor,
+          title: Row(
+            children: [
+              Icon(Icons.help_outline, color: Colors.teal.shade600, size: 28),
+              const SizedBox(width: 10),
+              Text(
+                'How to Use the App',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(
+                  'Welcome to your Timetable Portal! Here is how you can make the most of this app as a Student:',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.calendar_today,
+                  iconColor: Colors.blue,
+                  title: 'Today\'s Schedule',
+                  description: 'Your homepage lists today\'s active lectures, combining both recurring weekly timetable entries and one-off extra classes scheduled by your teachers.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.calendar_month,
+                  iconColor: Colors.purple,
+                  title: 'Weekly Timetable',
+                  description: 'Tap the top-right Options menu (three dots) and select "Weekly Timetable" to view your class\'s full weekly timetable.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.auto_awesome,
+                  iconColor: Colors.amber.shade700,
+                  title: 'AI Planner & Tutor',
+                  description: 'Tap the sparkle icon in the top app bar to open the Gemini AI Planner. Ask queries or upload study materials for instant summaries.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.smart_toy,
+                  iconColor: Colors.teal,
+                  title: 'Aagewala Assistant',
+                  description: 'Tap the robot icon in the top app bar to chat with Aagewala. Ask "What classes do I have today?" or "Show my profile" to get instant answers.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.assignment_turned_in_outlined,
+                  iconColor: Colors.green,
+                  title: 'Attendance Tracking',
+                  description: 'Go to Options -> "Attendance Tracking" to record and review your subject-wise class attendance.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.sick_outlined,
+                  iconColor: Colors.orange,
+                  title: 'Apply for Leave',
+                  description: 'Need leave? Go to Options -> "Apply for Leave" to submit leave requests directly to your teachers.',
+                ),
+                _buildHelpItem(
+                  context,
+                  icon: Icons.person_outline,
+                  iconColor: Colors.indigo,
+                  title: 'Edit Profile',
+                  description: 'Update your name, roll number, class, or division anytime from the Options -> "Edit Profile" menu.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Got it!',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHelpItem(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+  }) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface.withOpacity(0.65),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -302,6 +458,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'how_to_use_student',
+        onPressed: () => _showHowToUseDialog(context),
+        backgroundColor: Colors.teal.shade600,
+        child: const Icon(Icons.help_outline, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       body: RefreshIndicator(
         onRefresh: () async {
           final lp = Provider.of<LectureProvider>(context, listen: false);
