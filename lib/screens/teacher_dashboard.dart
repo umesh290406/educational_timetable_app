@@ -227,18 +227,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               Navigator.pushNamed(context, '/aagewala');
             },
           ),
-          Consumer<ThemeProvider>(
-            builder: (context, themeProvider, child) {
-              return IconButton(
-                icon: Icon(
-                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  color: Colors.white,
-                ),
-                tooltip: themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
-                onPressed: () => themeProvider.toggleTheme(),
-              );
-            },
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             tooltip: 'Options',

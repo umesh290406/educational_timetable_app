@@ -50,7 +50,7 @@ class MyApp extends StatelessWidget {
             navigatorKey: navigatorKey,
             title: 'Educational Timetable',
             debugShowCheckedModeBanner: false,
-            themeMode: themeProvider.themeMode,
+            themeMode: ThemeMode.light,
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
@@ -59,15 +59,6 @@ class MyApp extends StatelessWidget {
                 brightness: Brightness.light,
               ),
               textTheme: GoogleFonts.poppinsTextTheme(),
-            ),
-            darkTheme: ThemeData(
-              useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.teal.shade300,
-                primary: Colors.teal.shade400,
-                brightness: Brightness.dark,
-              ),
-              textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
             ),
             home: const WelcomeScreen(),
             routes: {
