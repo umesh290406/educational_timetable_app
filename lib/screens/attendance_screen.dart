@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../services/attendance_service.dart';
+import '../services/student_roster_service.dart';
 import '../utils/class_config.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -99,14 +100,47 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     final email = auth.user?.email ?? '';
     final className = auth.user?.className ?? '11th - Commerce';
     final section = auth.user?.section ?? 'A';
+    final name = auth.user?.name ?? 'Student';
     
     await AttendanceService.saveRollNo(
       email,
       roll,
-      name: auth.user?.name ?? 'Student',
+      name: name,
       className: className,
       section: section,
     );
+
+    // Save/Sync to StudentRosterService as well
+    final existingProfiles = await StudentRosterService.getAllStudents();
+    final matchIndex = existingProfiles.indexWhere((e) =>
+        e.rollNo == roll &&
+        e.className.toLowerCase() == className.toLowerCase() &&
+        e.section.toLowerCase() == section.toLowerCase());
+    
+    String address = '';
+    String contactNo = '';
+    String parentsNo = '';
+    String birthday = '';
+    if (matchIndex != -1) {
+      address = existingProfiles[matchIndex].address;
+      contactNo = existingProfiles[matchIndex].contactNo;
+      parentsNo = existingProfiles[matchIndex].parentsNo;
+      birthday = existingProfiles[matchIndex].birthday;
+    }
+
+    await StudentRosterService.saveStudent(
+      StudentProfile(
+        rollNo: roll,
+        name: name,
+        className: className,
+        section: section,
+        address: address,
+        contactNo: contactNo,
+        parentsNo: parentsNo,
+        birthday: birthday,
+      ),
+    );
+
     _loadStudentData();
   }
 
@@ -905,6 +939,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   itemBuilder: (context, index) {
                     final student = _roster[index];
                     final isPresent = _markedStatus[student.rollNo] == 'Present';
+                    final reportItem = _classReport.firstWhere(
+                      (item) => item['rollNo'] == student.rollNo,
+                      orElse: () => <String, dynamic>{},
+                    );
+                    final hasStats = reportItem.isNotEmpty && (reportItem['total'] as int? ?? 0) > 0;
+                    final percent = hasStats ? (reportItem['percentage'] as double) : null;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
@@ -920,9 +960,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                           student.name,
                           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
-                        subtitle: Text(
-                          'Roll No: ${student.rollNo}',
-                          style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
+                        subtitle: Row(
+                          children: [
+                            Text(
+                              'Roll No: ${student.rollNo}',
+                              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
+                            ),
+                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: percent == null
+                                    ? Colors.grey.shade100
+                                    : (percent >= 75.0 ? Colors.green.shade50 : Colors.red.shade50),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                percent == null
+                                    ? '0% Attended'
+                                    : '${percent.toStringAsFixed(1)}% Attended',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: percent == null
+                                      ? Colors.grey.shade600
+                                      : (percent >= 75.0 ? Colors.green.shade700 : Colors.red.shade700),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

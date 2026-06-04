@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/student_roster_service.dart';
+import '../services/attendance_service.dart';
 import '../widgets/loading_widget.dart';
 import '../utils/class_config.dart';
 
@@ -17,6 +18,7 @@ class _TeacherRosterScreenState extends State<TeacherRosterScreen> {
   String _selectedSpecialization = 'Commerce';
   String _selectedSection = 'A';
   List<StudentProfile> _students = [];
+  Map<String, double> _attendancePercentages = {};
   bool _isLoading = false;
 
   @override
@@ -29,8 +31,19 @@ class _TeacherRosterScreenState extends State<TeacherRosterScreen> {
     setState(() => _isLoading = true);
     final combinedClass = ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization);
     final students = await StudentRosterService.getStudentsForClass(combinedClass, _selectedSection);
+    
+    // Load attendance report to get percentages
+    final report = await AttendanceService.getClassReport(combinedClass, _selectedSection);
+    final percentages = <String, double>{};
+    for (final item in report) {
+      if ((item['total'] as int? ?? 0) > 0) {
+        percentages[item['rollNo']] = item['percentage'] as double;
+      }
+    }
+
     setState(() {
       _students = students;
+      _attendancePercentages = percentages;
       _isLoading = false;
     });
   }
@@ -534,10 +547,13 @@ class _TeacherRosterScreenState extends State<TeacherRosterScreen> {
                               DataColumn(label: Text('Contact No', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.teal.shade800))),
                               DataColumn(label: Text('Parents Contact', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.teal.shade800))),
                               DataColumn(label: Text('Address', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.teal.shade800))),
+                              DataColumn(label: Text('Attendance %', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.teal.shade800))),
                               DataColumn(label: Text('Actions', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.teal.shade800))),
                             ],
                             rows: List.generate(_students.length, (idx) {
                               final student = _students[idx];
+                              final pct = _attendancePercentages[student.rollNo];
+
                               return DataRow(
                                 cells: [
                                   DataCell(Text((idx + 1).toString(), style: GoogleFonts.poppins(fontSize: 13))),
@@ -547,6 +563,18 @@ class _TeacherRosterScreenState extends State<TeacherRosterScreen> {
                                   DataCell(Text(student.contactNo, style: GoogleFonts.poppins(fontSize: 13))),
                                   DataCell(Text(student.parentsNo, style: GoogleFonts.poppins(fontSize: 13))),
                                   DataCell(Text(student.address, style: GoogleFonts.poppins(fontSize: 13))),
+                                  DataCell(
+                                    Text(
+                                      pct == null ? '0%' : '${pct.toStringAsFixed(1)}%',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: pct == null
+                                            ? Colors.grey
+                                            : (pct >= 75.0 ? Colors.green.shade700 : Colors.red.shade700),
+                                      ),
+                                    ),
+                                  ),
                                   DataCell(
                                     Row(
                                       mainAxisSize: MainAxisSize.min,

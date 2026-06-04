@@ -13,6 +13,7 @@ import '../widgets/lecture_card.dart';
 import '../widgets/loading_widget.dart';
 import '../models/timetable_model.dart';
 import '../services/attendance_service.dart';
+import '../services/student_roster_service.dart';
 import '../utils/class_config.dart';
 import 'login_screen.dart';
 import '../main.dart'; // for global navigatorKey
@@ -40,6 +41,54 @@ class _StudentDashboardState extends State<StudentDashboard> {
       lp.getStudentLectures();
       if (auth.user?.className != null) {
         lp.getTimetable(auth.user!.className!);
+      }
+
+      if (auth.user?.email != null) {
+        final email = auth.user!.email;
+        AttendanceService.getSavedRollNo(email).then((roll) async {
+          if (roll != null && roll.isNotEmpty && auth.user?.className != null && auth.user?.section != null) {
+            final className = auth.user!.className!;
+            final section = auth.user!.section!;
+            final name = auth.user!.name;
+            await AttendanceService.registerStudent(
+              email: email,
+              name: name,
+              rollNo: roll,
+              className: className,
+              section: section,
+            );
+            
+            final existingProfiles = await StudentRosterService.getAllStudents();
+            final matchIndex = existingProfiles.indexWhere((e) =>
+                e.rollNo == roll &&
+                e.className.toLowerCase() == className.toLowerCase() &&
+                e.section.toLowerCase() == section.toLowerCase());
+            
+            String address = '';
+            String contactNo = '';
+            String parentsNo = '';
+            String birthday = '';
+            if (matchIndex != -1) {
+              address = existingProfiles[matchIndex].address;
+              contactNo = existingProfiles[matchIndex].contactNo;
+              parentsNo = existingProfiles[matchIndex].parentsNo;
+              birthday = existingProfiles[matchIndex].birthday;
+            }
+
+            await StudentRosterService.saveStudent(
+              StudentProfile(
+                rollNo: roll,
+                name: name,
+                className: className,
+                section: section,
+                address: address,
+                contactNo: contactNo,
+                parentsNo: parentsNo,
+                birthday: birthday,
+              ),
+            );
+          }
+        });
       }
     });
     
@@ -909,8 +958,45 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       specialization: dialogSpecialization,
                     );
 
-                    // Update roll number in AttendanceService
-                    await AttendanceService.saveRollNo(email, roll);
+                    // Update roll number in AttendanceService and register globally
+                    await AttendanceService.saveRollNo(
+                      email,
+                      roll,
+                      name: name,
+                      className: combinedClass,
+                      section: dialogSection,
+                    );
+
+                    // Save/Sync detailed student roster
+                    final existingProfiles = await StudentRosterService.getAllStudents();
+                    final matchIndex = existingProfiles.indexWhere((e) =>
+                        e.rollNo == roll &&
+                        e.className.toLowerCase() == combinedClass.toLowerCase() &&
+                        e.section.toLowerCase() == dialogSection.toLowerCase());
+                    
+                    String address = '';
+                    String contactNo = '';
+                    String parentsNo = '';
+                    String birthday = '';
+                    if (matchIndex != -1) {
+                      address = existingProfiles[matchIndex].address;
+                      contactNo = existingProfiles[matchIndex].contactNo;
+                      parentsNo = existingProfiles[matchIndex].parentsNo;
+                      birthday = existingProfiles[matchIndex].birthday;
+                    }
+
+                    await StudentRosterService.saveStudent(
+                      StudentProfile(
+                        rollNo: roll,
+                        name: name,
+                        className: combinedClass,
+                        section: dialogSection,
+                        address: address,
+                        contactNo: contactNo,
+                        parentsNo: parentsNo,
+                        birthday: birthday,
+                      ),
+                    );
 
                     if (mounted) {
                       Navigator.pop(context);

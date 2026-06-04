@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/attendance_service.dart';
+import '../services/student_roster_service.dart';
 import '../services/leave_service.dart';
 
 class StudentLeaveScreen extends StatefulWidget {
@@ -60,16 +61,52 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
     final user = authProvider.user;
     if (user == null) return;
 
+    final rollStr = _rollController.text.trim();
+    final className = user.className ?? '';
+    final section = user.section ?? '';
+    final name = user.name;
+
     await AttendanceService.saveRollNo(
       user.email,
-      _rollController.text.trim(),
-      name: user.name,
-      className: user.className,
-      section: user.section,
+      rollStr,
+      name: name,
+      className: className,
+      section: section,
+    );
+
+    // Save/Sync to StudentRosterService as well
+    final existingProfiles = await StudentRosterService.getAllStudents();
+    final matchIndex = existingProfiles.indexWhere((e) =>
+        e.rollNo == rollStr &&
+        e.className.toLowerCase() == className.toLowerCase() &&
+        e.section.toLowerCase() == section.toLowerCase());
+    
+    String address = '';
+    String contactNo = '';
+    String parentsNo = '';
+    String birthday = '';
+    if (matchIndex != -1) {
+      address = existingProfiles[matchIndex].address;
+      contactNo = existingProfiles[matchIndex].contactNo;
+      parentsNo = existingProfiles[matchIndex].parentsNo;
+      birthday = existingProfiles[matchIndex].birthday;
+    }
+
+    await StudentRosterService.saveStudent(
+      StudentProfile(
+        rollNo: rollStr,
+        name: name,
+        className: className,
+        section: section,
+        address: address,
+        contactNo: contactNo,
+        parentsNo: parentsNo,
+        birthday: birthday,
+      ),
     );
 
     setState(() {
-      _rollNo = _rollController.text.trim();
+      _rollNo = rollStr;
     });
     
     await _fetchLeaves();

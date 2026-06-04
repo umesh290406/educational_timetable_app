@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/custom_input_field.dart';
+import '../services/attendance_service.dart';
+import '../services/student_roster_service.dart';
 import '../utils/class_config.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -17,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _rollController = TextEditingController();
   
   String _selectedRole = 'student';
   String _selectedClass = '11th';
@@ -28,6 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _rollController.dispose();
     super.dispose();
   }
 
@@ -36,6 +40,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty) {
       _showSnackBar(context, 'Please fill all required fields', isError: true);
+      return;
+    }
+
+    final roll = _selectedRole == 'student' ? _rollController.text.trim() : null;
+    if (_selectedRole == 'student' && (roll == null || roll.isEmpty)) {
+      _showSnackBar(context, 'Please enter your roll number', isError: true);
       return;
     }
 
@@ -57,6 +67,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (success) {
       if (mounted) {
+        if (_selectedRole == 'student' && roll != null) {
+          // Register student in rosters
+          await AttendanceService.saveRollNo(
+            _emailController.text.trim(),
+            roll,
+            name: _nameController.text.trim(),
+            className: combinedClass!,
+            section: combinedSection!,
+          );
+          await StudentRosterService.saveStudent(
+            StudentProfile(
+              rollNo: roll,
+              name: _nameController.text.trim(),
+              className: combinedClass,
+              section: combinedSection!,
+              address: '',
+              contactNo: '',
+              parentsNo: '',
+              birthday: '',
+            ),
+          );
+        }
         _showSnackBar(context, 'Registration successful!', isError: false);
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
@@ -269,6 +301,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         
                         if (_selectedRole == 'student') ...[
+                          const SizedBox(height: 20),
+                          CustomInputField(
+                            label: 'Roll Number *',
+                            hint: 'Enter your roll number',
+                            controller: _rollController,
+                            keyboardType: TextInputType.number,
+                            prefixIcon: Icons.tag,
+                          ),
                           const SizedBox(height: 20),
                           // Class selection
                           Text(
