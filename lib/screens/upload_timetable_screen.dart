@@ -115,8 +115,9 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
           _subjectController.clear();
           _professorController.clear();
           _roomController.clear();
-          _selectedClass = null;
-          _selectedSection = null;
+          _selectedClass = '11th';
+          _selectedSpecialization = 'Commerce';
+          _selectedSection = 'A';
           _selectedDay = 'Monday';
           _startTime = '';
           _endTime = '';
