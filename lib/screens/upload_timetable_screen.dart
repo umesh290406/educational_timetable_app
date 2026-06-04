@@ -150,7 +150,7 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
       children: [
         Text(
           required ? '$label *' : label,
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -160,12 +160,12 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
           style: GoogleFonts.poppins(fontSize: 14),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
             prefixIcon: Icon(icon, color: Colors.teal.shade600, size: 20),
             hintText: 'Type ${label.replaceAll(' *', '')}...',
             hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             counterStyle: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
@@ -192,7 +192,6 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
@@ -201,16 +200,16 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
           isExpanded: true,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
             prefixIcon:
                 Icon(icon, color: Colors.teal.shade600, size: 20),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+              borderSide: BorderSide(color: Colors.grey.shade400),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+              borderSide: BorderSide(color: Colors.grey.shade400),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -250,7 +249,6 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
@@ -260,9 +258,9 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: Colors.grey.shade400),
             ),
             child: Row(
               children: [
@@ -273,7 +271,7 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
                   time.isEmpty ? 'Tap to pick time' : time,
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    color: time.isEmpty ? Colors.grey : Colors.black87,
+                    color: time.isEmpty ? Colors.grey : Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -287,7 +285,7 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.teal.shade600,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -305,7 +303,7 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(

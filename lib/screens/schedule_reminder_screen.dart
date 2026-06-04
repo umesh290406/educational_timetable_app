@@ -236,7 +236,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.teal.shade600,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -315,7 +315,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
             // ── Subject TextField ──────────────────────────────────────────
             Text(
               'Subject Name',
-              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -324,12 +324,12 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
               style: GoogleFonts.poppins(fontSize: 14),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Colors.grey[50],
+                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                 hintText: 'e.g. DBMS, Mathematics, OS...',
                 hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
                 prefixIcon: Icon(Icons.subject, color: Colors.teal.shade600, size: 20),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 counterStyle: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
@@ -338,7 +338,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
             const SizedBox(height: 16),
 
             // ── Class Chips ────────────────────────────────────────────────
-            Text('Class', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+            Text('Class', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -349,7 +349,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
                   label: Text(cls),
                   selected: isSelected,
                   selectedColor: Colors.teal.shade600,
-                  backgroundColor: Colors.grey.shade100,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                   labelStyle: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -362,7 +362,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
             const SizedBox(height: 16),
 
             // ── Section Chips ──────────────────────────────────────────────
-            Text('Section / Division', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+            Text('Section / Division', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -373,7 +373,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
                   label: Text('Div $sec'),
                   selected: isSelected,
                   selectedColor: Colors.teal.shade600,
-                  backgroundColor: Colors.grey.shade100,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                   labelStyle: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -468,11 +468,11 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? Colors.purple.shade400 : Colors.grey.shade300,
+            color: isSelected ? Colors.purple.shade400 : Colors.grey.shade400,
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
-          color: isSelected ? Colors.purple.shade50 : Colors.white,
+          color: isSelected ? Colors.purple.withOpacity(0.15) : Theme.of(context).cardColor,
         ),
         child: Row(
           children: [
@@ -493,8 +493,8 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: isSelected
-                          ? Colors.purple.shade700
-                          : Colors.black87,
+                          ? Colors.purple.shade300
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -502,7 +502,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
                     subtitle,
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ],

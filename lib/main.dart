@@ -18,6 +18,7 @@ import 'screens/student_leave_screen.dart';
 import 'screens/teacher_leave_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/lecture_provider.dart';
+import 'providers/theme_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -39,44 +40,59 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => LectureProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: MaterialApp(
-        navigatorKey: navigatorKey,
-        title: 'Educational Timetable',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.teal.shade300,
-            primary: Colors.teal.shade400,
-            brightness: Brightness.light,
-          ),
-          textTheme: GoogleFonts.poppinsTextTheme(),
-        ),
-        home: const WelcomeScreen(),
-        routes: {
-          '/login': (context) => const LoginScreen(),
-          '/student': (context) => const StudentDashboard(),
-          '/teacher': (context) => const TeacherDashboard(),
-          '/notifications': (context) => const NotificationsScreen(),
-          '/upload-timetable': (context) => const UploadTimetableScreen(),
-          '/aagewala': (context) => const AagewalaChatScreen(),
-          '/attendance': (context) => const AttendanceScreen(),
-          '/ai_planner': (context) => const AiPlannerScreen(),
-          '/student-leave': (context) => const StudentLeaveScreen(),
-          '/teacher-leave': (context) => const TeacherLeaveScreen(),
-          '/view-timetable': (context) => const ViewTimetableScreen(
-                className: 'SE',
-                section: 'A',
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            navigatorKey: navigatorKey,
+            title: 'Educational Timetable',
+            debugShowCheckedModeBanner: false,
+            themeMode: themeProvider.themeMode,
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.teal.shade300,
+                primary: Colors.teal.shade400,
+                brightness: Brightness.light,
               ),
-          '/schedule-reminder': (context) => const ScheduleReminderScreen(
-                lectureId: '',
-                lectureName: '',
-                startTime: '',
-                endTime: '',
-                className: '',
-                section: '',
+              textTheme: GoogleFonts.poppinsTextTheme(),
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.teal.shade300,
+                primary: Colors.teal.shade400,
+                brightness: Brightness.dark,
               ),
+              textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+            ),
+            home: const WelcomeScreen(),
+            routes: {
+              '/login': (context) => const LoginScreen(),
+              '/student': (context) => const StudentDashboard(),
+              '/teacher': (context) => const TeacherDashboard(),
+              '/notifications': (context) => const NotificationsScreen(),
+              '/upload-timetable': (context) => const UploadTimetableScreen(),
+              '/aagewala': (context) => const AagewalaChatScreen(),
+              '/attendance': (context) => const AttendanceScreen(),
+              '/ai_planner': (context) => const AiPlannerScreen(),
+              '/student-leave': (context) => const StudentLeaveScreen(),
+              '/teacher-leave': (context) => const TeacherLeaveScreen(),
+              '/view-timetable': (context) => const ViewTimetableScreen(
+                    className: 'SE',
+                    section: 'A',
+                  ),
+              '/schedule-reminder': (context) => const ScheduleReminderScreen(
+                    lectureId: '',
+                    lectureName: '',
+                    startTime: '',
+                    endTime: '',
+                    className: '',
+                    section: '',
+                  ),
+            },
+          );
         },
       ),
     );

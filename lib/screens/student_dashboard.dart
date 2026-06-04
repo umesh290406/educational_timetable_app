@@ -15,6 +15,7 @@ import '../models/timetable_model.dart';
 import '../services/attendance_service.dart';
 import 'login_screen.dart';
 import '../main.dart'; // for global navigatorKey
+import '../providers/theme_provider.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({Key? key}) : super(key: key);
@@ -118,7 +119,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final lectureProvider = Provider.of<LectureProvider>(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.teal.shade600,
@@ -155,6 +156,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
             tooltip: 'AI Planner',
             onPressed: () {
               Navigator.pushNamed(context, '/ai_planner');
+            },
+          ),
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: Colors.white,
+                ),
+                tooltip: themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
+                onPressed: () => themeProvider.toggleTheme(),
+              );
             },
           ),
           PopupMenuButton<String>(

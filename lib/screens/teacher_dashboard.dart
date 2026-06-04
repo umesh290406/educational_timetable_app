@@ -13,6 +13,7 @@ import '../providers/lecture_provider.dart';
 import '../widgets/lecture_card.dart';
 import '../widgets/loading_widget.dart';
 import 'add_lecture_screen.dart';
+import '../providers/theme_provider.dart';
 
 class TeacherDashboard extends StatefulWidget {
   const TeacherDashboard({Key? key}) : super(key: key);
@@ -38,7 +39,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     final lectureProvider = Provider.of<LectureProvider>(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.teal.shade600,
@@ -68,6 +69,18 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             tooltip: 'Aagewala Chat',
             onPressed: () {
               Navigator.pushNamed(context, '/aagewala');
+            },
+          ),
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: Colors.white,
+                ),
+                tooltip: themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
+                onPressed: () => themeProvider.toggleTheme(),
+              );
             },
           ),
           PopupMenuButton<String>(
