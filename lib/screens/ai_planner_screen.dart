@@ -248,18 +248,19 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: theme.cardColor,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.key, color: Colors.black87),
+            icon: Icon(Icons.key, color: theme.colorScheme.onSurface),
             tooltip: 'Configure API Key',
             onPressed: _showApiKeyDialog,
           ),
@@ -283,14 +284,14 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: Colors.black87,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
                   'Powered by Gemini 2.5 Flash',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
               ],
@@ -445,9 +446,9 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               border: Border(
-                top: BorderSide(color: Colors.grey.shade200),
+                top: BorderSide(color: Theme.of(context).dividerColor),
               ),
             ),
             child: Row(
@@ -460,15 +461,22 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(24),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: TextField(
                       controller: _messageController,
-                      style: GoogleFonts.poppins(fontSize: 14),
-                      decoration: const InputDecoration(
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      decoration: InputDecoration(
                         hintText: 'Ask Gemini anything...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
                         border: InputBorder.none,
                       ),
                       onSubmitted: (_) => _sendMessage(),

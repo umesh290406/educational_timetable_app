@@ -186,7 +186,7 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 2,
         shadowColor: Colors.teal.shade50,
@@ -253,7 +253,7 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                       maxWidth: MediaQuery.of(context).size.width * 0.75,
                     ),
                     decoration: BoxDecoration(
-                      color: isBot ? Colors.white : Colors.teal.shade500,
+                      color: isBot ? Theme.of(context).cardColor : Colors.teal.shade500,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
@@ -274,7 +274,7 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                         Text(
                           msg['text'],
                           style: GoogleFonts.poppins(
-                            color: isBot ? Colors.grey.shade800 : Colors.white,
+                            color: isBot ? Theme.of(context).colorScheme.onSurface : Colors.white,
                             fontSize: 14,
                             height: 1.4,
                           ),
@@ -285,7 +285,7 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                           child: Text(
                             DateFormat('hh:mm a').format(msg['time']),
                             style: GoogleFonts.poppins(
-                              color: isBot ? Colors.grey.shade400 : Colors.teal.shade100,
+                              color: isBot ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5) : Colors.teal.shade100,
                               fontSize: 9,
                             ),
                           ),
@@ -319,9 +319,9 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               border: Border(
-                top: BorderSide(color: Colors.grey.shade200),
+                top: BorderSide(color: Theme.of(context).dividerColor),
               ),
             ),
             child: Row(
@@ -329,15 +329,22 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(24),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: TextField(
                       controller: _messageController,
-                      style: GoogleFonts.poppins(fontSize: 14),
-                      decoration: const InputDecoration(
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      decoration: InputDecoration(
                         hintText: 'Type your question...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
                         border: InputBorder.none,
                       ),
                       onSubmitted: _handleSendMessage,

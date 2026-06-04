@@ -34,6 +34,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -42,7 +43,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 8),
@@ -50,16 +51,24 @@ class _CustomInputFieldState extends State<CustomInputField> {
           controller: widget.controller,
           keyboardType: widget.keyboardType,
           obscureText: _obscureText,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: theme.colorScheme.onSurface,
+          ),
           decoration: InputDecoration(
             hintText: widget.hint,
+            hintStyle: GoogleFonts.poppins(
+              fontSize: 13,
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
             prefixIcon: widget.prefixIcon != null
-                ? Icon(widget.prefixIcon, color: Colors.teal)
+                ? Icon(widget.prefixIcon, color: theme.colorScheme.primary)
                 : null,
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(
                       _obscureText ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.teal,
+                      color: theme.colorScheme.primary,
                     ),
                     onPressed: () {
                       setState(() {
@@ -69,14 +78,14 @@ class _CustomInputFieldState extends State<CustomInputField> {
                   )
                 : null,
             filled: true,
-            fillColor: Colors.grey[100],
+            fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.4),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.teal, width: 2),
+              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
             ),
             contentPadding: const EdgeInsets.all(16),
           ),

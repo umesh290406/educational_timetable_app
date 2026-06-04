@@ -186,27 +186,28 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     bool required = false,
     TextInputType keyboardType = TextInputType.text,
   }) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           required ? '$label *' : label,
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           maxLength: 50,
           keyboardType: keyboardType,
-          style: GoogleFonts.poppins(fontSize: 14),
+          style: GoogleFonts.poppins(fontSize: 14, color: theme.colorScheme.onSurface),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey[100],
+            fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
             prefixIcon: Icon(icon, color: Colors.teal.shade600, size: 20),
             hintText: 'Type ${label.replaceAll(' *', '')}...',
             hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             counterStyle: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
@@ -224,12 +225,13 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
     required void Function(String) onSelect,
     bool required = false,
   }) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           required ? '$label *' : label,
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -241,10 +243,10 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
               label: Text(opt),
               selected: isSelected,
               selectedColor: Colors.teal.shade600,
-              backgroundColor: Colors.grey.shade100,
+              backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: isSelected ? Colors.teal.shade600 : Colors.grey.shade300),
+                side: BorderSide(color: isSelected ? Colors.teal.shade600 : Colors.grey.shade400),
               ),
               labelStyle: GoogleFonts.poppins(
                 fontWeight: FontWeight.bold,
@@ -261,19 +263,20 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
 
   // ── Time picker tile ───────────────────────────────────────────────────────
   Widget _buildTimePicker(String label, String time, bool isStart) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+        Text(label, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: () => _selectTime(isStart),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: Colors.grey.shade400),
             ),
             child: Row(
               children: [
@@ -281,7 +284,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
                 const SizedBox(width: 8),
                 Text(
                   time.isEmpty ? 'Select time' : time,
-                  style: GoogleFonts.poppins(fontSize: 13, color: time.isEmpty ? Colors.grey : Colors.black87),
+                  style: GoogleFonts.poppins(fontSize: 13, color: time.isEmpty ? Colors.grey : theme.colorScheme.onSurface),
                 ),
               ],
             ),
@@ -294,7 +297,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.teal.shade600,
@@ -309,7 +312,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4)),
@@ -377,16 +380,16 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
               // ── Notification Reminder (kept as dropdown) ───────────────────
               Text(
                 'Notification Reminder',
-                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _selectedReminder,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.grey[100],
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade400)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.teal.shade400, width: 2)),
                   prefixIcon: Icon(Icons.notifications_active, color: Colors.teal.shade600),
                 ),
