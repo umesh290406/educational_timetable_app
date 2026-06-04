@@ -129,7 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          '📚 Create Account',
+                          'Create Account',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
                             fontSize: 28,
@@ -179,7 +179,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                '👤 Student',
+                                'Student',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -210,7 +210,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                '👨‍🏫 Teacher',
+                                'Teacher',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,

@@ -119,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   children: [
                     Text(
-                      '📚 Timetable Pro',
+                      'Timetable Pro',
                       style: GoogleFonts.poppins(
                         fontSize: 36,
                         fontWeight: FontWeight.bold,

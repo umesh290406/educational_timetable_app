@@ -159,7 +159,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Lecture created successfully! 🎉'),
+              content: Text('Lecture created successfully!'),
               backgroundColor: Colors.green,
             ),
           );

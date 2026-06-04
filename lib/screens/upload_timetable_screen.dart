@@ -105,7 +105,7 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Timetable entry added successfully!'),
+            content: Text('Timetable entry added successfully!'),
             backgroundColor: Colors.green,
           ),
         );

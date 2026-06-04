@@ -51,7 +51,7 @@ class _ViewTimetableScreenState extends State<ViewTimetableScreen> {
       appBar: AppBar(
         backgroundColor: Colors.teal.shade600,
         title: Text(
-          '📅 Weekly Timetable',
+          'Weekly Timetable',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -268,7 +268,7 @@ class _ViewTimetableScreenState extends State<ViewTimetableScreen> {
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
-                                          '❌ Cancelled',
+                                          'Cancelled',
                                           style: GoogleFonts.poppins(
                                             fontSize: 12,
                                             color: Colors.red.shade700,

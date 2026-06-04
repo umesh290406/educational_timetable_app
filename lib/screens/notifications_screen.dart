@@ -27,7 +27,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.teal.shade600,
         title: Text(
-          '🔔 Notifications',
+          'Notifications',
           style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,

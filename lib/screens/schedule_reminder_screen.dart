@@ -123,7 +123,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
       // Schedule local notification for teacher (skipped on web)
       await ReminderService.scheduleNotification(
         id: widget.lectureId.hashCode,
-        title: '⏰ Reminder: $subject',
+        title: 'Reminder: $subject',
         body: 'Your class starts at ${widget.startTime}',
         scheduledDate: reminderTime,
         payload: widget.lectureId,
@@ -147,7 +147,7 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '✅ Reminder set for ${DateFormat('MMM d, h:mm a').format(reminderTime)}',
+              'Reminder set for ${DateFormat('MMM d, h:mm a').format(reminderTime)}',
             ),
             backgroundColor: Colors.green,
           ),
@@ -396,19 +396,19 @@ class _ScheduleReminderScreenState extends State<ScheduleReminderScreen> {
             const SizedBox(height: 14),
 
             _buildReminderOption(
-              title: '📅 1 Day Before',
+              title: '1 Day Before',
               subtitle: 'Reminder 24 hours before the lecture',
               value: '1day',
             ),
             const SizedBox(height: 10),
             _buildReminderOption(
-              title: '⏰ 1 Hour Before',
+              title: '1 Hour Before',
               subtitle: 'Reminder 60 minutes before class',
               value: '1hour',
             ),
             const SizedBox(height: 10),
             _buildReminderOption(
-              title: '⏱️ 30 Minutes Before',
+              title: '30 Minutes Before',
               subtitle: 'Recommended — 30 minutes before class',
               value: '30min',
             ),

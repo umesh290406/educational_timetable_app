@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          '📚 Timetable Pro',
+                          'Timetable Pro',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
                             fontSize: 28,
@@ -160,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                '👤 Student',
+                                'Student',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -191,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                '👨‍🏫 Teacher',
+                                'Teacher',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,

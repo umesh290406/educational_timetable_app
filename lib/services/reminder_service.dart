@@ -45,7 +45,7 @@ class ReminderService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
     } catch (e) {
-      print('❌ Failed to initialize notifications: $e');
+      print('Failed to initialize notifications: $e');
     }
   }
 

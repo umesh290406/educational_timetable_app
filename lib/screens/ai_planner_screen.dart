@@ -35,7 +35,7 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
     // Welcome message
     _messages.add({
       'sender': 'bot',
-      'text': 'Welcome to your Advanced AI Planner! 🚀\nI am powered by Google Gemini. You can ask me anything like "What is Java?" or upload your Notes/PDFs/Images and ask me to summarize or explain them.',
+      'text': 'Welcome to your Advanced AI Planner!\nI am powered by Google Gemini. You can ask me anything like "What is Java?" or upload your Notes/PDFs/Images and ask me to summarize or explain them.',
       'time': DateTime.now(),
     });
   }

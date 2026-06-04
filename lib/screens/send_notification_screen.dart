@@ -223,6 +223,10 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                 controller: _messageController,
                 maxLines: 4,
                 maxLength: 200,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Enter your notification message',
                   border: OutlineInputBorder(
@@ -238,7 +242,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                     borderSide: BorderSide(color: Colors.teal, width: 2),
                   ),
                   filled: true,
-                  fillColor: Colors.grey.shade50,
+                  fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                   prefixIcon: Icon(Icons.message),
                 ),
               ),
@@ -257,7 +261,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.shade50,
+                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                 ),
                 child: DropdownButton<String>(
                   value: _selectedTiming,
@@ -275,7 +279,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                          '📤 Send Now (Immediate)',
+                          'Send Now (Immediate)',
                           style: GoogleFonts.poppins(),
                         ),
                       ),
@@ -285,7 +289,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                          '⏰ 1 Hour Before Lecture',
+                          '1 Hour Before Lecture',
                           style: GoogleFonts.poppins(),
                         ),
                       ),
@@ -295,7 +299,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                          '⏰ 30 Minutes Before Lecture',
+                          '30 Minutes Before Lecture',
                           style: GoogleFonts.poppins(),
                         ),
                       ),
@@ -305,7 +309,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                          '⏱️ Custom Time',
+                          'Custom Time',
                           style: GoogleFonts.poppins(),
                         ),
                       ),

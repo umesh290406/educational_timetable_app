@@ -109,9 +109,9 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
         final item = tomorrowSchedule[i];
         final type = item is Timetable ? 'Weekly' : 'One-off';
         buffer.writeln('${i + 1}. *${item.subjectName}* ($type)\n'
-            '   ⏰ ${item.startTime} - ${item.endTime}\n'
-            '   🚪 Room ${item.roomNumber}\n'
-            '   👨‍🏫 Prof. ${item.teacherName}\n');
+            '   Time: ${item.startTime} - ${item.endTime}\n'
+            '   Room: ${item.roomNumber}\n'
+            '   Prof: ${item.teacherName}\n');
       }
       return buffer.toString();
     }
@@ -139,9 +139,9 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
         final item = todaySchedule[i];
         final type = item is Timetable ? 'Weekly' : 'One-off';
         buffer.writeln('${i + 1}. *${item.subjectName}* ($type)\n'
-            '   ⏰ ${item.startTime} - ${item.endTime}\n'
-            '   🚪 Room ${item.roomNumber}\n'
-            '   👨‍🏫 Prof. ${item.teacherName}\n');
+            '   Time: ${item.startTime} - ${item.endTime}\n'
+            '   Room: ${item.roomNumber}\n'
+            '   Prof: ${item.teacherName}\n');
       }
       return buffer.toString();
     }
