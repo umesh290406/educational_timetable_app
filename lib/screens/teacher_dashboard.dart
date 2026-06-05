@@ -14,6 +14,8 @@ import '../widgets/lecture_card.dart';
 import '../widgets/loading_widget.dart';
 import 'add_lecture_screen.dart';
 import '../providers/theme_provider.dart';
+import '../services/attendance_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TeacherDashboard extends StatefulWidget {
   const TeacherDashboard({Key? key}) : super(key: key);
@@ -31,6 +33,132 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       await lp.getTeacherLectures();
       await lp.getTeacherTimetable();
     });
+  }
+
+  void _showSupportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: theme.cardColor,
+          title: Row(
+            children: [
+              Icon(Icons.contact_support_outlined, color: Colors.teal.shade600, size: 28),
+              const SizedBox(width: 10),
+              Text(
+                'Support Staff',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Need assistance? You can reach out to our support staff via phone or email.',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Call Card
+              Card(
+                elevation: 0,
+                color: Colors.teal.shade50.withOpacity(0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.teal.shade100),
+                ),
+                child: ListTile(
+                  leading: Icon(Icons.phone, color: Colors.teal.shade700),
+                  title: Text(
+                    'Call Support',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    '8356961200',
+                    style: GoogleFonts.poppins(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final Uri launchUri = Uri(
+                      scheme: 'tel',
+                      path: '8356961200',
+                    );
+                    if (await canLaunchUrl(launchUri)) {
+                      await launchUrl(launchUri);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open phone dialer')),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Email Card
+              Card(
+                elevation: 0,
+                color: Colors.teal.shade50.withOpacity(0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.teal.shade100),
+                ),
+                child: ListTile(
+                  leading: Icon(Icons.email, color: Colors.teal.shade700),
+                  title: Text(
+                    'Email Support',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    'umesh@gmail.com',
+                    style: GoogleFonts.poppins(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final Uri launchUri = Uri(
+                      scheme: 'mailto',
+                      path: 'umesh@gmail.com',
+                      queryParameters: {
+                        'subject': 'Support Request - Timetable App',
+                      },
+                    );
+                    if (await canLaunchUrl(launchUri)) {
+                      await launchUrl(launchUri);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open email app')),
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Close',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showHowToUseDialog(BuildContext context) {
@@ -285,6 +413,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 case 'exam':
                   Navigator.pushNamed(context, '/teacher-exam');
                   break;
+                case 'profile':
+                  _showEditProfileDialog(context, authProvider);
+                  break;
                 case 'logout':
                   await authProvider.logout();
                   if (mounted) {
@@ -372,6 +503,19 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ],
                 ),
               ),
+              PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Profile Settings',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
               const PopupMenuDivider(),
               PopupMenuItem<String>(
                 value: 'logout',
@@ -398,14 +542,28 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 16.0),
-              child: FloatingActionButton(
-                heroTag: 'how_to_use_teacher',
-                onPressed: () => _showHowToUseDialog(context),
-                backgroundColor: Colors.teal.shade600,
-                child: const Icon(Icons.help_outline, color: Colors.white),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FloatingActionButton(
+                    heroTag: 'support_staff_teacher',
+                    onPressed: () => _showSupportDialog(context),
+                    backgroundColor: Colors.teal.shade600,
+                    child: const Icon(Icons.contact_support, color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  FloatingActionButton(
+                    heroTag: 'how_to_use_teacher',
+                    onPressed: () => _showHowToUseDialog(context),
+                    backgroundColor: Colors.teal.shade600,
+                    child: const Icon(Icons.help_outline, color: Colors.white),
+                  ),
+                ],
               ),
             ),
             FloatingActionButton(
@@ -717,34 +875,221 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
-  void _showNotifyDialog(BuildContext context) {
+  void _showEditProfileDialog(BuildContext context, AuthProvider authProvider) async {
+    final email = authProvider.user?.email ?? '';
+    final currentTeacherId = await AttendanceService.getSavedTeacherId(email) ?? '';
+
+    if (!mounted) return;
+
+    final nameController = TextEditingController(text: authProvider.user?.name ?? '');
+    final emailController = TextEditingController(text: email);
+    final idController = TextEditingController(text: currentTeacherId);
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      barrierDismissible: true,
+      builder: (context) {
         return AlertDialog(
-          title: const Text('Send Notification'),
-          content: const Text(
-            'Send a reminder notification to all students in this class?',
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.person_outline, color: Colors.teal.shade700),
+              const SizedBox(width: 8),
+              Text(
+                'Edit Profile',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    prefixIcon: Icon(Icons.person),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  enabled: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Email Address (Read-only)',
+                    prefixIcon: Icon(Icons.email),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: idController,
+                  decoration: const InputDecoration(
+                    labelText: 'Teacher ID',
+                    prefixIcon: Icon(Icons.tag),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context); // Close Edit Profile Dialog
+                      _confirmDeleteAccount(context, authProvider);
+                    },
+                    icon: const Icon(Icons.delete_forever, color: Colors.red),
+                    label: Text(
+                      'Delete Account',
+                      style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(color: Colors.grey.shade600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newName = nameController.text.trim();
+                final newTeacherId = idController.text.trim();
+
+                if (newName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Name cannot be empty'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                await authProvider.updateTeacherProfile(
+                  name: newName,
+                  email: email,
+                );
+                await AttendanceService.saveTeacherId(email, newTeacherId);
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profile updated successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade700,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Save Changes',
+                style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteAccount(BuildContext context, AuthProvider authProvider) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Delete Account?',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.red),
+          ),
+          content: Text(
+            'Are you sure you want to delete your account? This action is permanent and cannot be undone.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey.shade600)),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Notification sent to students'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                _confirmDeleteAccountSecondTime(context, authProvider);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
-              child: const Text('Send'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: Text('Delete', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteAccountSecondTime(BuildContext context, AuthProvider authProvider) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Confirm Account Deletion',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.red.shade900),
+          ),
+          content: Text(
+            'WARNING: Are you absolutely sure you want to permanently delete your account? All your local session data will be wiped out.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey.shade600)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final success = await authProvider.deleteAccount();
+                if (success) {
+                  if (mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Account deleted successfully.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to delete account.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade900),
+              child: Text('Yes, Delete', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );

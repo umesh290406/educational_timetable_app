@@ -25,124 +25,129 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Top - Logo
-                Column(
-                  children: [
-                    SizedBox(height: 40),
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 15,
-                          ),
-                        ],
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Top - Logo
+                  Column(
+                    children: [
+                      SizedBox(height: 20),
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 15,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.school,
+                          size: 60,
+                          color: Color(0xFF009688),
+                        ),
                       ),
-                      child: Icon(
-                        Icons.school,
-                        size: 60,
-                        color: Color(0xFF009688),
+                      SizedBox(height: 24),
+                      Text(
+                        'Welcome to Timetable Pro',
+                        style: GoogleFonts.poppins(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                    SizedBox(height: 24),
-                    Text(
-                      'Welcome to Timetable Pro',
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                  SizedBox(height: 36),
 
-                // Middle - Features
-                Column(
-                  children: [
-                    _FeatureItem(
-                      icon: Icons.notifications,
-                      title: 'Instant Notifications',
-                      description: 'Get real-time class updates',
-                    ),
-                    SizedBox(height: 24),
-                    _FeatureItem(
-                      icon: Icons.schedule,
-                      title: 'Smart Reminders',
-                      description: 'Never miss a class again',
-                    ),
-                    SizedBox(height: 24),
-                    _FeatureItem(
-                      icon: Icons.calendar_month,
-                      title: 'View Timetable',
-                      description: 'Organized weekly schedule',
-                    ),
-                  ],
-                ),
+                  // Middle - Features
+                  Column(
+                    children: [
+                      _FeatureItem(
+                        icon: Icons.notifications,
+                        title: 'Instant Notifications',
+                        description: 'Get real-time class updates',
+                      ),
+                      SizedBox(height: 20),
+                      _FeatureItem(
+                        icon: Icons.schedule,
+                        title: 'Smart Reminders',
+                        description: 'Never miss a class again',
+                      ),
+                      SizedBox(height: 20),
+                      _FeatureItem(
+                        icon: Icons.calendar_month,
+                        title: 'View Timetable',
+                        description: 'Organized weekly schedule',
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 36),
 
-                // Bottom - Buttons
-                Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Color(0xFF00796B),
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  // Bottom - Buttons
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Color(0xFF00796B),
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 5,
                           ),
-                          elevation: 5,
-                        ),
-                        child: Text(
-                          'Login',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(color: Colors.white, width: 2),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          'Create Account',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                          child: Text(
+                            'Login',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            side: BorderSide(color: Colors.white, width: 2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Create Account',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

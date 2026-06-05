@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/lecture_provider.dart';
+import '../providers/auth_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/class_config.dart';
 
@@ -22,6 +23,17 @@ class _UploadTimetableScreenState extends State<UploadTimetableScreen> {
   String _selectedSpecialization = 'Commerce';
   String _selectedSection = 'A';
   String _selectedDay = 'Monday';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.user != null) {
+        _professorController.text = auth.user!.name;
+      }
+    });
+  }
 
   // Time
   String _startTime = '';

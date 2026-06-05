@@ -20,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _rollController = TextEditingController();
+  final _collegeCodeController = TextEditingController();
   
   String _selectedRole = 'student';
   String _selectedClass = '11th';
@@ -32,6 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _rollController.dispose();
+    _collegeCodeController.dispose();
     super.dispose();
   }
 
@@ -41,6 +43,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _passwordController.text.isEmpty) {
       _showSnackBar(context, 'Please fill all required fields', isError: true);
       return;
+    }
+
+    if (_selectedRole == 'teacher') {
+      final code = _collegeCodeController.text.trim().toUpperCase();
+      if (code != 'UMESH2904' && code != 'SHREYAS29') {
+        _showSnackBar(context, 'Invalid College Code! Account creation restricted.', isError: true);
+        return;
+      }
     }
 
     final roll = _selectedRole == 'student' ? _rollController.text.trim() : null;
@@ -299,6 +309,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           isPassword: true,
                           prefixIcon: Icons.lock,
                         ),
+                        if (_selectedRole == 'teacher') ...[
+                          const SizedBox(height: 20),
+                          CustomInputField(
+                            label: 'College Code *',
+                            hint: 'Enter teacher verification code',
+                            controller: _collegeCodeController,
+                            prefixIcon: Icons.security,
+                          ),
+                        ],
                         
                         if (_selectedRole == 'student') ...[
                           const SizedBox(height: 20),

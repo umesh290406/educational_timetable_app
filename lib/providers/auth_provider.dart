@@ -159,6 +159,56 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateTeacherProfile({
+    required String name,
+    required String email,
+  }) async {
+    if (_user == null) return;
+    
+    _user = User(
+      id: _user!.id,
+      name: name.trim(),
+      email: email.trim(),
+      role: _user!.role,
+      className: _user!.className,
+      section: _user!.section,
+      specialization: _user!.specialization,
+      token: _user!.token,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userData', jsonEncode(_user!.toJson()));
+    notifyListeners();
+  }
+
+  Future<bool> deleteAccount() async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('authToken');
+      await prefs.remove('userData');
+      
+      final email = _user?.email;
+      if (email != null) {
+        await prefs.remove('student_roll_no_v1_${email.trim().toLowerCase()}');
+        await prefs.remove('teacher_id_no_v1_${email.trim().toLowerCase()}');
+      }
+
+      _user = null;
+      _isLoggedIn = false;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     try {
       final prefs = await SharedPreferences.getInstance();

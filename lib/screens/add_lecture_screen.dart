@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../providers/lecture_provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/class_config.dart';
 
 class AddLectureScreen extends StatefulWidget {
@@ -22,6 +23,17 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
   String _selectedClass = '11th';
   String _selectedSpecialization = 'Commerce';
   String _selectedSection = 'A';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.user != null) {
+        _professorController.text = auth.user!.name;
+      }
+    });
+  }
 
   // Reminder
   String _selectedReminder = 'None';

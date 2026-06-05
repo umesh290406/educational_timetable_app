@@ -69,6 +69,19 @@ class AttendanceRecord {
 class AttendanceService {
   static const String _recordsKey = 'attendance_records_v1';
   static const String _studentRollKey = 'student_roll_no_v1';
+  static const String _teacherIdKey = 'teacher_id_no_v1';
+
+  // Get saved Teacher ID per email
+  static Future<String?> getSavedTeacherId(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('${_teacherIdKey}_${email.trim().toLowerCase()}');
+  }
+
+  // Save Teacher ID per email
+  static Future<void> saveTeacherId(String email, String teacherId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('${_teacherIdKey}_${email.trim().toLowerCase()}', teacherId.trim());
+  }
 
   // Get saved Student Roll Number per email
   static Future<String?> getSavedRollNo(String email) async {
