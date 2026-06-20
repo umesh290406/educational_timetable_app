@@ -33,12 +33,12 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Error: $e');
+      // Error silently handled — user will see login screen
     }
   }
 
   Future<bool> login({
-    required String email,
+    required String emailOrUsername,
     required String password,
     required String role,
   }) async {
@@ -48,7 +48,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
 
       final result = await ApiService.login(
-        email: email,
+        emailOrUsername: emailOrUsername,
         password: password,
         role: role,
       );
@@ -78,13 +78,15 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> register({
+    required String emailOrUsername,
     required String name,
-    required String email,
     required String password,
     required String role,
     String? className,
     String? section,
     String? specialization,
+    String? college,
+    String? phone,
   }) async {
     try {
       _isLoading = true;
@@ -92,24 +94,29 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
 
       final result = await ApiService.register(
+        emailOrUsername: emailOrUsername,
         name: name,
-        email: email,
         password: password,
         role: role,
         className: className,
         section: section,
+        specialization: specialization,
+        college: college,
+        phone: phone,
       );
 
       if (result['success']) {
         final apiUser = result['user'] as User;
         _user = User(
           id: apiUser.id,
+          username: apiUser.username,
           name: apiUser.name,
           email: apiUser.email,
           role: apiUser.role,
           className: apiUser.className,
           section: apiUser.section,
-          specialization: specialization,
+          specialization: apiUser.specialization ?? specialization,
+          college: apiUser.college ?? college,
           token: apiUser.token,
         );
         _isLoggedIn = true;
@@ -140,17 +147,20 @@ class AuthProvider extends ChangeNotifier {
     required String className,
     required String section,
     required String specialization,
+    required String college,
   }) async {
     if (_user == null) return;
     
     _user = User(
       id: _user!.id,
+      username: _user!.username,
       name: name.trim(),
       email: email.trim(),
       role: _user!.role,
       className: className.trim(),
       section: section.trim(),
       specialization: specialization.trim(),
+      college: college.trim(),
       token: _user!.token,
     );
 
@@ -162,17 +172,20 @@ class AuthProvider extends ChangeNotifier {
   Future<void> updateTeacherProfile({
     required String name,
     required String email,
+    required String college,
   }) async {
     if (_user == null) return;
     
     _user = User(
       id: _user!.id,
+      username: _user!.username,
       name: name.trim(),
       email: email.trim(),
       role: _user!.role,
       className: _user!.className,
       section: _user!.section,
       specialization: _user!.specialization,
+      college: college.trim(),
       token: _user!.token,
     );
 
@@ -219,7 +232,7 @@ class AuthProvider extends ChangeNotifier {
       _isLoggedIn = false;
       notifyListeners();
     } catch (e) {
-      print('Error: $e');
+      // Logout error handled silently
     }
   }
 }

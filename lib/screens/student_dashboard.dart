@@ -93,8 +93,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
       }
     });
     
-    // Polling for notifications every 10 seconds
-    _notificationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    // Polling for notifications every 60 seconds (was 10s — too aggressive for battery/bandwidth)
+    _notificationTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       _checkNewNotifications();
     });
   }
@@ -179,7 +179,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
               Icon(Icons.contact_support_outlined, color: Colors.teal.shade600, size: 28),
               const SizedBox(width: 10),
               Text(
-                'Support Staff',
+                'Help Center',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
@@ -192,7 +192,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Need assistance? You can reach out to our support staff via phone or email.',
+                'Need assistance? You can reach out to our help center via phone or email.',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: theme.colorScheme.onSurface.withOpacity(0.8),
@@ -223,9 +223,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       scheme: 'tel',
                       path: '8356961200',
                     );
-                    if (await canLaunchUrl(launchUri)) {
+                    try {
                       await launchUrl(launchUri);
-                    } else {
+                    } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Could not open phone dialer')),
                       );
@@ -261,9 +261,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         'subject': 'Support Request - Timetable App',
                       },
                     );
-                    if (await canLaunchUrl(launchUri)) {
-                      await launchUrl(launchUri);
-                    } else {
+                    try {
+                      await launchUrl(launchUri, mode: LaunchMode.externalApplication);
+                    } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Could not open email app')),
                       );
@@ -344,16 +344,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 _buildHelpItem(
                   context,
                   icon: Icons.auto_awesome,
-                  iconColor: Colors.amber.shade700,
-                  title: 'AI Planner & Tutor',
-                  description: 'Tap the sparkle icon in the top app bar to open the Gemini AI Planner. Ask queries or upload study materials for instant summaries.',
-                ),
-                _buildHelpItem(
-                  context,
-                  icon: Icons.smart_toy,
                   iconColor: Colors.teal,
-                  title: 'Aagewala Assistant',
-                  description: 'Tap the robot icon in the top app bar to chat with Aagewala. Ask "What classes do I have today?" or "Show my profile" to get instant answers.',
+                  title: 'Aagewala AI Assistant',
+                  description: 'Tap the AI icon in the top app bar to query Aagewala AI. Ask about your schedule, conceptual questions, or upload files for analysis!',
                 ),
                 _buildHelpItem(
                   context,
@@ -467,7 +460,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Welcome, ${authProvider.user?.name ?? 'Student'}',
+              'Welcome, ${authProvider.user?.username ?? authProvider.user?.name ?? 'Student'}',
               style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -475,27 +468,22 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
             ),
             Text(
-              '${authProvider.user?.className ?? 'N/A'} - ${authProvider.user?.section ?? 'N/A'}',
+              '${authProvider.user?.className ?? 'N/A'} - ${authProvider.user?.section ?? 'N/A'}${authProvider.user?.college != null ? ' | ${authProvider.user!.college}' : ''}',
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: Colors.white70,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.smart_toy, color: Colors.white),
-            tooltip: 'Aagewala Chat',
+            icon: const Icon(Icons.auto_awesome, color: Colors.white),
+            tooltip: 'Aagewala AI Assistant',
             onPressed: () {
               Navigator.pushNamed(context, '/aagewala');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.auto_awesome, color: Colors.white),
-            tooltip: 'AI Planner',
-            onPressed: () {
-              Navigator.pushNamed(context, '/ai_planner');
             },
           ),
           PopupMenuButton<String>(
@@ -533,6 +521,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   break;
                 case 'exam':
                   Navigator.pushNamed(context, '/student-exam');
+                  break;
+                case 'tests':
+                  Navigator.pushNamed(context, '/student-tests');
                   break;
                 case 'profile':
                   _showEditProfileDialog(context, authProvider);
@@ -606,6 +597,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     const SizedBox(width: 12),
                     Text(
                       'Exam Schedule',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'tests',
+                child: Row(
+                  children: [
+                    Icon(Icons.quiz_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Online Tests',
                       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ],
@@ -902,6 +906,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
     String dialogClass = initialClassData['class'] ?? '11th';
     String dialogSpecialization = initialClassData['specialization'] ?? 'Commerce';
     String dialogSection = authProvider.user?.section ?? 'A';
+    String? dialogCollege = authProvider.user?.college ?? '3257 A.P. Shah Institute of Technology';
+    String collegeSearchQuery = '';
 
     final nameController = TextEditingController(text: authProvider.user?.name ?? '');
     final emailController = TextEditingController(text: authProvider.user?.email ?? '');
@@ -1063,6 +1069,151 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    // College selection
+                    Text(
+                      'College',
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                    ),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () {
+                        // Open college bottom sheet selector
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) {
+                            return DraggableScrollableSheet(
+                              initialChildSize: 0.85,
+                              minChildSize: 0.5,
+                              maxChildSize: 0.95,
+                              builder: (context, scrollController) {
+                                return StatefulBuilder(
+                                  builder: (context, setModalState) {
+                                    final list = ClassConfig.colleges.entries.toList();
+                                    final filtered = collegeSearchQuery.isEmpty
+                                        ? list
+                                        : list.where((entry) => '${entry.key} ${entry.value}'.toLowerCase().contains(collegeSearchQuery.toLowerCase())).toList();
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: theme.scaffoldBackgroundColor,
+                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                                      ),
+                                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 5,
+                                            margin: const EdgeInsets.only(bottom: 16),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[400],
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Select College',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          TextField(
+                                            onChanged: (val) {
+                                              setModalState(() {
+                                                collegeSearchQuery = val;
+                                              });
+                                            },
+                                            style: GoogleFonts.poppins(fontSize: 14),
+                                            decoration: InputDecoration(
+                                              hintText: 'Search college...',
+                                              prefixIcon: const Icon(Icons.search, color: Colors.teal),
+                                              filled: true,
+                                              fillColor: Colors.grey.withOpacity(0.1),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Expanded(
+                                            child: ListView.builder(
+                                              controller: scrollController,
+                                              itemCount: filtered.length,
+                                              itemBuilder: (context, index) {
+                                                final collegeEntry = filtered[index];
+                                                final collegeText = '${collegeEntry.key} ${collegeEntry.value}';
+                                                final isSelected = dialogCollege == collegeText;
+                                                return Container(
+                                                  margin: const EdgeInsets.only(bottom: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected ? Colors.teal.withOpacity(0.08) : Colors.transparent,
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: isSelected ? Colors.teal : Colors.grey.withOpacity(0.2),
+                                                    ),
+                                                  ),
+                                                  child: ListTile(
+                                                    title: Text(
+                                                      collegeText,
+                                                      style: GoogleFonts.poppins(
+                                                        fontSize: 14,
+                                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                        color: isSelected ? Colors.teal.shade700 : null,
+                                                      ),
+                                                    ),
+                                                    trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.teal) : null,
+                                                    onTap: () {
+                                                      setDialogState(() {
+                                                        dialogCollege = collegeText;
+                                                      });
+                                                      Navigator.pop(context);
+                                                    },
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                );
+                              },
+                            );
+                          },
+                        ).then((_) {
+                          collegeSearchQuery = '';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                dialogCollege ?? 'Tap to select your college',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: dialogCollege == null ? Colors.grey.shade600 : theme.colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
@@ -1109,6 +1260,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       return;
                     }
 
+                    if (dialogCollege == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('College is required!'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
                     final combinedClass = ClassConfig.combineClassAndSpecialization(dialogClass, dialogSpecialization);
 
                     // Update details in AuthProvider
@@ -1118,6 +1279,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       className: combinedClass,
                       section: dialogSection,
                       specialization: dialogSpecialization,
+                      college: dialogCollege!,
                     );
 
                     // Update roll number in AttendanceService and register globally

@@ -31,4 +31,17 @@ class NotificationModel {
       createdAt: json['createdAt'] ?? DateTime.now().toString(),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'studentId': studentId,
+      'lectureId': lectureId,
+      'title': title,
+      'message': message,
+      'notificationType': notificationType,
+      'isRead': isRead,
+      'createdAt': createdAt,
+    };
+  }
 }

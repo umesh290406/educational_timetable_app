@@ -16,6 +16,7 @@ import 'add_lecture_screen.dart';
 import '../providers/theme_provider.dart';
 import '../services/attendance_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/class_config.dart';
 
 class TeacherDashboard extends StatefulWidget {
   const TeacherDashboard({Key? key}) : super(key: key);
@@ -50,7 +51,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               Icon(Icons.contact_support_outlined, color: Colors.teal.shade600, size: 28),
               const SizedBox(width: 10),
               Text(
-                'Support Staff',
+                'Help Center',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
@@ -63,7 +64,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Need assistance? You can reach out to our support staff via phone or email.',
+                'Need assistance? You can reach out to our help center via phone or email.',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: theme.colorScheme.onSurface.withOpacity(0.8),
@@ -94,9 +95,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       scheme: 'tel',
                       path: '8356961200',
                     );
-                    if (await canLaunchUrl(launchUri)) {
+                    try {
                       await launchUrl(launchUri);
-                    } else {
+                    } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Could not open phone dialer')),
                       );
@@ -132,9 +133,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         'subject': 'Support Request - Timetable App',
                       },
                     );
-                    if (await canLaunchUrl(launchUri)) {
-                      await launchUrl(launchUri);
-                    } else {
+                    try {
+                      await launchUrl(launchUri, mode: LaunchMode.externalApplication);
+                    } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Could not open email app')),
                       );
@@ -249,10 +250,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 ),
                 _buildHelpItem(
                   context,
-                  icon: Icons.smart_toy,
+                  icon: Icons.auto_awesome,
                   iconColor: Colors.indigo,
                   title: 'Aagewala Assistant',
-                  description: 'Tap the robot icon in the top app bar to query Aagewala AI about your schedule or profile details.',
+                  description: 'Tap the AI icon in the top app bar to query Aagewala AI about your schedule or profile details.',
                 ),
               ],
             ),
@@ -338,7 +339,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Welcome, ${authProvider.user?.name ?? 'Teacher'}',
+              'Welcome, ${authProvider.user?.username ?? authProvider.user?.name ?? 'Teacher'}',
               style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -363,7 +364,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.smart_toy, color: Colors.white),
+            icon: const Icon(Icons.auto_awesome, color: Colors.white),
             tooltip: 'Aagewala Chat',
             onPressed: () {
               Navigator.pushNamed(context, '/aagewala');
@@ -412,6 +413,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   break;
                 case 'exam':
                   Navigator.pushNamed(context, '/teacher-exam');
+                  break;
+                case 'tests':
+                  Navigator.pushNamed(context, '/teacher-tests');
                   break;
                 case 'profile':
                   _showEditProfileDialog(context, authProvider);
@@ -498,6 +502,19 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     const SizedBox(width: 12),
                     Text(
                       'Manage Exam Schedules',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'tests',
+                child: Row(
+                  children: [
+                    Icon(Icons.quiz_outlined, color: Colors.teal.shade700),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Online Tests',
                       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ],
@@ -881,6 +898,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
     if (!mounted) return;
 
+    String? dialogCollege = authProvider.user?.college ?? '3257 A.P. Shah Institute of Technology';
+    String collegeSearchQuery = '';
+
     final nameController = TextEditingController(text: authProvider.user?.name ?? '');
     final emailController = TextEditingController(text: email);
     final idController = TextEditingController(text: currentTeacherId);
@@ -889,125 +909,286 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       context: context,
       barrierDismissible: true,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.person_outline, color: Colors.teal.shade700),
-              const SizedBox(width: 8),
-              Text(
-                'Edit Profile',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        final theme = Theme.of(context);
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person),
+              title: Row(
+                children: [
+                  Icon(Icons.person_outline, color: Colors.teal.shade700),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Edit Profile',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: emailController,
-                  enabled: false,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address (Read-only)',
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: idController,
-                  decoration: const InputDecoration(
-                    labelText: 'Teacher ID',
-                    prefixIcon: Icon(Icons.tag),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context); // Close Edit Profile Dialog
-                      _confirmDeleteAccount(context, authProvider);
-                    },
-                    icon: const Icon(Icons.delete_forever, color: Colors.red),
-                    label: Text(
-                      'Delete Account',
-                      style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: Icon(Icons.person),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailController,
+                      enabled: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Email Address (Read-only)',
+                        prefixIcon: Icon(Icons.email),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: idController,
+                      decoration: const InputDecoration(
+                        labelText: 'Teacher ID',
+                        prefixIcon: Icon(Icons.tag),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // College selection
+                    Text(
+                      'College',
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                    ),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () {
+                        // Open college bottom sheet selector
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) {
+                            return DraggableScrollableSheet(
+                              initialChildSize: 0.85,
+                              minChildSize: 0.5,
+                              maxChildSize: 0.95,
+                              builder: (context, scrollController) {
+                                return StatefulBuilder(
+                                  builder: (context, setModalState) {
+                                    final list = ClassConfig.colleges.entries.toList();
+                                    final filtered = collegeSearchQuery.isEmpty
+                                        ? list
+                                        : list.where((entry) => '${entry.key} ${entry.value}'.toLowerCase().contains(collegeSearchQuery.toLowerCase())).toList();
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: theme.scaffoldBackgroundColor,
+                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                                      ),
+                                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 5,
+                                            margin: const EdgeInsets.only(bottom: 16),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[400],
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Select College',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          TextField(
+                                            onChanged: (val) {
+                                              setModalState(() {
+                                                collegeSearchQuery = val;
+                                              });
+                                            },
+                                            style: GoogleFonts.poppins(fontSize: 14),
+                                            decoration: InputDecoration(
+                                              hintText: 'Search college...',
+                                              prefixIcon: const Icon(Icons.search, color: Colors.teal),
+                                              filled: true,
+                                              fillColor: Colors.grey.withOpacity(0.1),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Expanded(
+                                            child: ListView.builder(
+                                              controller: scrollController,
+                                              itemCount: filtered.length,
+                                              itemBuilder: (context, index) {
+                                                final collegeEntry = filtered[index];
+                                                final collegeText = '${collegeEntry.key} ${collegeEntry.value}';
+                                                final isSelected = dialogCollege == collegeText;
+                                                return Container(
+                                                  margin: const EdgeInsets.only(bottom: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected ? Colors.teal.withOpacity(0.08) : Colors.transparent,
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: isSelected ? Colors.teal : Colors.grey.withOpacity(0.2),
+                                                    ),
+                                                  ),
+                                                  child: ListTile(
+                                                    title: Text(
+                                                      collegeText,
+                                                      style: GoogleFonts.poppins(
+                                                        fontSize: 14,
+                                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                        color: isSelected ? Colors.teal.shade700 : null,
+                                                      ),
+                                                    ),
+                                                    trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.teal) : null,
+                                                    onTap: () {
+                                                      setDialogState(() {
+                                                        dialogCollege = collegeText;
+                                                      });
+                                                      Navigator.pop(context);
+                                                    },
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                );
+                              },
+                            );
+                          },
+                        ).then((_) {
+                          collegeSearchQuery = '';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                dialogCollege ?? 'Tap to select your college',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: dialogCollege == null ? Colors.grey.shade600 : theme.colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context); // Close Edit Profile Dialog
+                          _confirmDeleteAccount(context, authProvider);
+                        },
+                        icon: const Icon(Icons.delete_forever, color: Colors.red),
+                        label: Text(
+                          'Delete Account',
+                          style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newName = nameController.text.trim();
+                    final newTeacherId = idController.text.trim();
+
+                    if (newName.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Name cannot be empty'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (dialogCollege == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('College is required'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    await authProvider.updateTeacherProfile(
+                      name: newName,
+                      email: email,
+                      college: dialogCollege!,
+                    );
+                    await AttendanceService.saveTeacherId(email, newTeacherId);
+
+                    if (mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile updated successfully'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade700,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Save Changes',
+                    style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(color: Colors.grey.shade600),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final newName = nameController.text.trim();
-                final newTeacherId = idController.text.trim();
-
-                if (newName.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Name cannot be empty'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                await authProvider.updateTeacherProfile(
-                  name: newName,
-                  email: email,
-                );
-                await AttendanceService.saveTeacherId(email, newTeacherId);
-
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile updated successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade700,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Save Changes',
-                style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );

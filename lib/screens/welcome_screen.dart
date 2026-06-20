@@ -124,7 +124,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         width: double.infinity,
                         child: OutlinedButton(
                           onPressed: () {
-                            Navigator.pushReplacementNamed(context, '/login');
+                            Navigator.pushReplacementNamed(context, '/register');
                           },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white,

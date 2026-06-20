@@ -47,4 +47,20 @@ class Lecture {
       cancellationReason: json['cancellationReason'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'subjectName': subjectName,
+      'teacherName': teacherName,
+      'className': className,
+      'section': section,
+      'startTime': startTime,
+      'endTime': endTime,
+      'roomNumber': roomNumber,
+      'lectureDate': lectureDate.toIso8601String(),
+      'isCancelled': isCancelled,
+      'cancellationReason': cancellationReason,
+    };
+  }
 }

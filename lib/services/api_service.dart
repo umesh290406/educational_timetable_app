@@ -25,7 +25,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> login({
-    required String email,
+    required String emailOrUsername,
     required String password,
     required String role,
   }) async {
@@ -34,7 +34,7 @@ class ApiService {
         Uri.parse('$baseUrl/api/auth/login'),
         headers: _headers,
         body: jsonEncode({
-          'email': email.trim(),
+          'email': emailOrUsername.trim(),
           'password': password.trim(),
           'role': role,
         }),
@@ -66,34 +66,49 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> register({
+    required String emailOrUsername,
     required String name,
-    required String email,
     required String password,
     required String role,
     String? className,
     String? section,
+    String? specialization,
+    String? college,
+    String? phone,
   }) async {
     try {
+
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
         headers: _headers,
         body: jsonEncode({
+          'identifier': emailOrUsername.trim(),
           'name': name,
-          'email': email,
           'password': password,
           'role': role,
           'className': className,
           'section': section,
+          'specialization': specialization,
+          'college': college,
+          'phone': phone,
         }),
       ).timeout(const Duration(seconds: 60));
 
+
       final data = jsonDecode(response.body);
-      if (response.statusCode == 201 && data['success'] == true) {
+      if ((response.statusCode == 201 || response.statusCode == 200) && data['success'] == true) {
+        final token = data['token'] ?? (data['user'] != null ? data['user']['token'] : null);
+        if (token != null) {
+          setToken(token);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('authToken', token);
+        }
         return {'success': true, 'user': User.fromJson(data['user'])};
       } else {
         return {'success': false, 'message': data['message'] ?? 'Registration failed'};
       }
     } catch (e) {
+
       return {'success': false, 'message': 'Connection error: $e'};
     }
   }

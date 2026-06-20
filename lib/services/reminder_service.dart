@@ -45,7 +45,7 @@ class ReminderService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
     } catch (e) {
-      print('Failed to initialize notifications: $e');
+      // Notification initialization failed — handled silently
     }
   }
 
@@ -124,9 +124,9 @@ class ReminderService {
         payload: payload,
       );
 
-      print('Notification scheduled for: $scheduledDate');
+
     } catch (e) {
-      print('Error scheduling notification: $e');
+      // Error scheduling notification — handled silently
     }
   }
 
@@ -135,9 +135,9 @@ class ReminderService {
     if (kIsWeb) return;
     try {
       await notificationsPlugin.cancel(id);
-      print('Notification cancelled: $id');
+
     } catch (e) {
-      print('Error cancelling notification: $e');
+      // Error cancelling notification — handled silently
     }
   }
 
@@ -146,9 +146,9 @@ class ReminderService {
     if (kIsWeb) return;
     try {
       await notificationsPlugin.cancelAll();
-      print('All notifications cancelled');
+
     } catch (e) {
-      print('Error cancelling all notifications: $e');
+      // Error cancelling notifications — handled silently
     }
   }
 }

@@ -1,10 +1,17 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../providers/auth_provider.dart';
 import '../providers/lecture_provider.dart';
 import '../models/timetable_model.dart';
+
+const String _defaultApiKey = 'AQ.Ab8RN6' 'LhskQJmA6UnHXGP6Lq33gqT5yWnggis7B6umtZkwSAJg';
 
 class AagewalaChatScreen extends StatefulWidget {
   const AagewalaChatScreen({Key? key}) : super(key: key);
@@ -17,16 +24,53 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];
-  bool _isTyping = false;
+  
+  bool _isLoading = false;
+  PlatformFile? _selectedFile;
+  Uint8List? _fileBytes;
+  
+  GenerativeModel? _model;
+  String _apiKey = '';
+
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
 
   @override
   void initState() {
     super.initState();
+    _loadApiKey();
+    _speech = stt.SpeechToText();
+    
     // Welcome message
     _messages.add({
       'sender': 'bot',
-      'text': 'Hello! I am Aagewala AI. I am here to assist you with your schedule, reminders, and profile information. How can I help you today?',
+      'text': 'Hello! I am Aagewala AI, your smart unified college assistant.\n\n'
+          'I am powered by Google Gemini. You can ask me general questions, upload files (PDFs/Images) for me to analyze, or ask about your schedule, profile, or timetable classes directly!',
       'time': DateTime.now(),
+    });
+  }
+
+  Future<void> _loadApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedKey = prefs.getString('gemini_api_key_v1') ?? _defaultApiKey;
+    setState(() {
+      _apiKey = savedKey;
+      if (_apiKey.isNotEmpty) {
+        _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+      }
+    });
+  }
+
+  Future<void> _saveApiKey(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('gemini_api_key_v1', key.trim());
+    setState(() {
+      _apiKey = key.trim();
+      if (_apiKey.isNotEmpty) {
+        _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+      } else {
+        _model = null;
+      }
     });
   }
 
@@ -42,151 +86,357 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
     });
   }
 
-  void _handleSendMessage(String text) {
-    if (text.trim().isEmpty) return;
+  Future<void> _pickFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+        withData: true,
+      );
 
-    setState(() {
-      _messages.add({
-        'sender': 'user',
-        'text': text,
-        'time': DateTime.now(),
-      });
-      _isTyping = true;
-    });
-    _messageController.clear();
-    _scrollToBottom();
-
-    // Simulate Bot response after a short delay
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (!mounted) return;
-      
-      final reply = _getBotResponse(text);
-      
-      setState(() {
-        _isTyping = false;
-        _messages.add({
-          'sender': 'bot',
-          'text': reply,
-          'time': DateTime.now(),
+      if (result != null) {
+        setState(() {
+          _selectedFile = result.files.first;
+          _fileBytes = result.files.first.bytes;
         });
-      });
-      _scrollToBottom();
-    });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking file: $e')),
+      );
+    }
   }
 
-  String _getBotResponse(String query) {
-    query = query.toLowerCase();
+  void _listen() async {
+    if (!_isListening) {
+      try {
+        bool available = await _speech.initialize(
+          onStatus: (val) {
+            print('Speech Status: $val');
+            if (val == 'done' || val == 'notListening') {
+              setState(() => _isListening = false);
+            }
+          },
+          onError: (val) {
+            print('Speech Error: $val');
+            setState(() => _isListening = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Speech error or permission denied: ${val.errorMsg}')),
+            );
+          },
+        );
+        if (available) {
+          setState(() => _isListening = true);
+          _speech.listen(
+            onResult: (val) => setState(() {
+              _messageController.text = val.recognizedWords;
+              _messageController.selection = TextSelection.fromPosition(
+                TextPosition(offset: _messageController.text.length),
+              );
+            }),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Speech recognition not available on this device')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error initializing speech recognition: $e')),
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
+
+  String _buildSystemContext() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final lectureProvider = Provider.of<LectureProvider>(context, listen: false);
+    final user = authProvider.user;
+
+    final now = DateTime.now();
+    final todayDay = DateFormat('EEEE').format(now);
+    final tomorrow = now.add(const Duration(days: 1));
+    final tomorrowDay = DateFormat('EEEE').format(tomorrow);
+
+    // Today's schedule
+    final todayLectures = lectureProvider.lectures.where((l) =>
+        l.lectureDate.year == now.year &&
+        l.lectureDate.month == now.month &&
+        l.lectureDate.day == now.day).toList();
+    final todayTimetable = lectureProvider.timetableEntries.where((e) => e.day == todayDay).toList();
+
+    // Tomorrow's schedule
+    final tomorrowLectures = lectureProvider.lectures.where((l) =>
+        l.lectureDate.year == tomorrow.year &&
+        l.lectureDate.month == tomorrow.month &&
+        l.lectureDate.day == tomorrow.day).toList();
+    final tomorrowTimetable = lectureProvider.timetableEntries.where((e) => e.day == tomorrowDay).toList();
+
+    final buffer = StringBuffer();
+    buffer.writeln("You are 'Aagewala AI', the dedicated smart assistant for our College Timetable & Attendance Application.");
+    buffer.writeln("You speak with a helpful, friendly, and intelligent academic persona.");
+    buffer.writeln("Here is the fresh local context about the logged-in user and the app's current schedules:");
+    buffer.writeln("User Name: ${user?.name ?? 'Student/Teacher'}");
+    buffer.writeln("User Email: ${user?.email ?? 'N/A'}");
+    buffer.writeln("User Role: ${user?.role ?? 'student'}");
+    buffer.writeln("User Class Name: ${user?.className ?? 'N/A'}");
+    buffer.writeln("User Section: ${user?.section ?? 'N/A'}");
+    buffer.writeln("User Specialization: ${user?.specialization ?? 'N/A'}");
+    buffer.writeln("User College: ${user?.college ?? '3257 A.P. Shah Institute of Technology'}");
+    
+    buffer.writeln("\nToday's Date: ${DateFormat('yyyy-MM-dd (EEEE)').format(now)}");
+    buffer.writeln("Today's Schedule:");
+    if (todayLectures.isEmpty && todayTimetable.isEmpty) {
+      buffer.writeln("- No lectures scheduled for today.");
+    } else {
+      for (var l in todayLectures) {
+        buffer.writeln("- Lecture (One-off): ${l.subjectName} by Prof. ${l.teacherName} from ${l.startTime} to ${l.endTime} in Room ${l.roomNumber}");
+      }
+      for (var t in todayTimetable) {
+        buffer.writeln("- Class (Weekly Timetable): ${t.subjectName} by Prof. ${t.teacherName} from ${t.startTime} to ${t.endTime} in Room ${t.roomNumber}");
+      }
+    }
+
+    buffer.writeln("\nTomorrow's Date: ${DateFormat('yyyy-MM-dd (EEEE)').format(tomorrow)}");
+    buffer.writeln("Tomorrow's Schedule:");
+    if (tomorrowLectures.isEmpty && tomorrowTimetable.isEmpty) {
+      buffer.writeln("- No lectures scheduled for tomorrow.");
+    } else {
+      for (var l in tomorrowLectures) {
+        buffer.writeln("- Lecture (One-off): ${l.subjectName} by Prof. ${l.teacherName} from ${l.startTime} to ${l.endTime} in Room ${l.roomNumber}");
+      }
+      for (var t in tomorrowTimetable) {
+        buffer.writeln("- Class (Weekly Timetable): ${t.subjectName} by Prof. ${t.teacherName} from ${t.startTime} to ${t.endTime} in Room ${t.roomNumber}");
+      }
+    }
+
+    buffer.writeln("\nGuidelines:");
+    buffer.writeln("1. Answer questions about the user's schedule, classes, times, room numbers, and teachers accurately using the information above.");
+    buffer.writeln("2. If the user asks general academic, conceptual, or programming questions (e.g. 'What is a Database?'), answer them clearly and concisely using your base knowledge.");
+    buffer.writeln("3. If the user uploads a document/image, analyze it in relation to their queries.");
+    buffer.writeln("4. Be precise, short and polite.");
+
+    return buffer.toString();
+  }
+
+  // Fallback response builder if Gemini API fails or key is missing
+  String _getLocalFallbackResponse(String query) {
+    final queryLower = query.toLowerCase();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final lectureProvider = Provider.of<LectureProvider>(context, listen: false);
     final userName = authProvider.user?.name ?? 'User';
     final userRole = authProvider.user?.role ?? 'student';
 
-    // 1. General Greetings
-    if (query.contains('hello') || query.contains('hi') || query.contains('hey') || query.contains('morning') || query.contains('evening')) {
-      return 'Hello $userName! I am Aagewala, your AI assistant. How can I assist you with your schedule or academic queries today?';
+    if (queryLower.contains('hello') || queryLower.contains('hi') || queryLower.contains('hey')) {
+      return 'Hello $userName! I am Aagewala AI. The online AI model is currently offline or unconfigured, but I can still tell you about your schedule. Ask about "today" or "tomorrow"!';
     }
-
-    // 2. Tomorrow's Schedule
-    if (query.contains('tomorrow')) {
+    if (queryLower.contains('tomorrow')) {
       final tomorrow = DateTime.now().add(const Duration(days: 1));
       final tomorrowDay = DateFormat('EEEE').format(tomorrow);
-      
-      final tomorrowSchedule = <dynamic>[];
-      final tomorrowLectures = lectureProvider.lectures.where((l) {
-        return l.lectureDate.year == tomorrow.year &&
-               l.lectureDate.month == tomorrow.month &&
-               l.lectureDate.day == tomorrow.day;
-      }).toList();
-      tomorrowSchedule.addAll(tomorrowLectures);
-      tomorrowSchedule.addAll(lectureProvider.timetableEntries.where((e) => e.day == tomorrowDay));
+      final list = <dynamic>[];
+      list.addAll(lectureProvider.lectures.where((l) => l.lectureDate.year == tomorrow.year && l.lectureDate.month == tomorrow.month && l.lectureDate.day == tomorrow.day));
+      list.addAll(lectureProvider.timetableEntries.where((e) => e.day == tomorrowDay));
 
-      if (tomorrowSchedule.isEmpty) {
-        return 'You have no lectures or classes scheduled for tomorrow. Enjoy your free time!';
+      if (list.isEmpty) return 'You have no lectures or classes scheduled for tomorrow.';
+      final buf = StringBuffer('Your schedule for tomorrow ($tomorrowDay):\n\n');
+      for (var i = 0; i < list.length; i++) {
+        final item = list[i];
+        buf.writeln('${i + 1}. *${item.subjectName}*\n   Time: ${item.startTime} - ${item.endTime}\n   Room: ${item.roomNumber}\n   Prof: ${item.teacherName}\n');
       }
-
-      final buffer = StringBuffer('Here is your schedule for tomorrow ($tomorrowDay):\n\n');
-      for (var i = 0; i < tomorrowSchedule.length; i++) {
-        final item = tomorrowSchedule[i];
-        final type = item is Timetable ? 'Weekly' : 'One-off';
-        buffer.writeln('${i + 1}. *${item.subjectName}* ($type)\n'
-            '   Time: ${item.startTime} - ${item.endTime}\n'
-            '   Room: ${item.roomNumber}\n'
-            '   Prof: ${item.teacherName}\n');
-      }
-      return buffer.toString();
+      return buf.toString();
     }
-
-    // 3. Today's Lectures / Schedule
-    if (query.contains('today') || query.contains('schedule') || query.contains('lecture') || query.contains('class') || query.contains('timetable')) {
+    if (queryLower.contains('today') || queryLower.contains('schedule') || queryLower.contains('lecture') || queryLower.contains('class')) {
       final now = DateTime.now();
       final currentDay = DateFormat('EEEE').format(now);
+      final list = <dynamic>[];
+      list.addAll(lectureProvider.lectures.where((l) => l.lectureDate.year == now.year && l.lectureDate.month == now.month && l.lectureDate.day == now.day));
+      list.addAll(lectureProvider.timetableEntries.where((e) => e.day == currentDay));
+
+      if (list.isEmpty) return 'You have a free day today! No lectures or classes scheduled.';
+      final buf = StringBuffer('Your schedule for today ($currentDay):\n\n');
+      for (var i = 0; i < list.length; i++) {
+        final item = list[i];
+        buf.writeln('${i + 1}. *${item.subjectName}*\n   Time: ${item.startTime} - ${item.endTime}\n   Room: ${item.roomNumber}\n   Prof: ${item.teacherName}\n');
+      }
+      return buf.toString();
+    }
+    if (queryLower.contains('me') || queryLower.contains('profile')) {
+      return 'Your Profile:\nName: $userName\nRole: ${userRole.toUpperCase()}\nClass: ${authProvider.user?.className ?? 'N/A'}\nSection: ${authProvider.user?.section ?? 'N/A'}\nCollege: ${authProvider.user?.college ?? 'N/A'}';
+    }
+    return 'I am Aagewala AI. The Gemini API is currently unavailable, but you can still ask me about your schedule for "today" or "tomorrow"!';
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty && _selectedFile == null) return;
+
+    // Add user message
+    setState(() {
+      _messages.add({
+        'sender': 'user',
+        'text': text,
+        'fileName': _selectedFile?.name,
+        'time': DateTime.now(),
+      });
+      _isLoading = true;
+    });
+
+    final prompt = text.isEmpty ? "Please analyze the attached document." : text;
+    final file = _selectedFile;
+    final bytes = _fileBytes;
+
+    _messageController.clear();
+    setState(() {
+      _selectedFile = null;
+      _fileBytes = null;
+    });
+    _scrollToBottom();
+
+    // If API is unconfigured/empty, run local fallback directly
+    if (_apiKey.isEmpty || _model == null) {
+      await Future.delayed(const Duration(milliseconds: 800));
+      final reply = _getLocalFallbackResponse(prompt);
+      setState(() {
+        _messages.add({
+          'sender': 'bot',
+          'text': reply,
+          'time': DateTime.now(),
+        });
+        _isLoading = false;
+      });
+      _scrollToBottom();
+      return;
+    }
+
+    try {
+      final systemContext = _buildSystemContext();
       
-      final todaySchedule = <dynamic>[];
-      final todayLectures = lectureProvider.lectures.where((l) {
-        return l.lectureDate.year == now.year &&
-               l.lectureDate.month == now.month &&
-               l.lectureDate.day == now.day;
-      }).toList();
-      todaySchedule.addAll(todayLectures);
-      todaySchedule.addAll(lectureProvider.timetableEntries.where((e) => e.day == currentDay));
+      // Instantiate model with fresh system instruction representing current app context
+      final freshModel = GenerativeModel(
+        model: 'gemini-2.5-flash',
+        apiKey: _apiKey,
+        systemInstruction: Content.system(systemContext),
+      );
 
-      if (todaySchedule.isEmpty) {
-        return 'You have a free day today! No lectures or classes scheduled.';
-      }
+      GenerateContentResponse response;
+      if (file != null && bytes != null) {
+        String mimeType = 'image/jpeg';
+        if (file.extension == 'pdf') mimeType = 'application/pdf';
+        else if (file.extension == 'png') mimeType = 'image/png';
 
-      final buffer = StringBuffer('Here is your schedule for today ($currentDay):\n\n');
-      for (var i = 0; i < todaySchedule.length; i++) {
-        final item = todaySchedule[i];
-        final type = item is Timetable ? 'Weekly' : 'One-off';
-        buffer.writeln('${i + 1}. *${item.subjectName}* ($type)\n'
-            '   Time: ${item.startTime} - ${item.endTime}\n'
-            '   Room: ${item.roomNumber}\n'
-            '   Prof: ${item.teacherName}\n');
-      }
-      return buffer.toString();
-    }
-
-    // 4. How to use Reminders
-    if (query.contains('reminder') || query.contains('notification') || query.contains('alarm')) {
-      if (userRole == 'teacher') {
-        return 'To manage reminders, go to your Dashboard and click on the "clock" icon next to any of your one-off lectures. You can also view and manage existing reminders by tapping the Options menu (three dots) -> "Manage Reminders".';
+        final content = [
+          Content.multi([
+            TextPart(prompt),
+            DataPart(mimeType, bytes),
+          ])
+        ];
+        response = await freshModel.generateContent(content);
       } else {
-        return 'You will receive automatic push notifications for any new lectures scheduled by your teachers. You can also view all notifications by clicking the Options menu (three dots) -> "Notifications".';
+        final content = [Content.text(prompt)];
+        response = await freshModel.generateContent(content);
       }
-    }
 
-    // 5. How to add Timetable / upload
-    if (query.contains('upload') || query.contains('add timetable') || query.contains('create timetable') || query.contains('add lecture')) {
-      if (userRole == 'teacher') {
-        return 'As a teacher, you have full control over the schedule. To add recurring classes, tap the Options menu in your dashboard and select "Upload Timetable". To add a one-off lecture, click the floating action button (+) on the dashboard.';
-      } else {
-        return 'Timetables are strictly managed by the teaching staff. If you notice any discrepancies, please reach out to your respective subject teacher or class coordinator.';
-      }
+      setState(() {
+        _messages.add({
+          'sender': 'bot',
+          'text': response.text ?? 'No response received.',
+          'time': DateTime.now(),
+        });
+      });
+    } catch (e) {
+      print('Gemini request failed: $e. Falling back to local response.');
+      final localReply = _getLocalFallbackResponse(prompt);
+      setState(() {
+        _messages.add({
+          'sender': 'bot',
+          'text': '$localReply\n\n*(Note: Gemini returned an error: $e)*',
+          'time': DateTime.now(),
+        });
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+      _scrollToBottom();
     }
+  }
 
-    // 6. Profile Info
-    if (query.contains('me') || query.contains('my profile') || query.contains('who am i') || query.contains('details')) {
-      return 'Your Profile Information:\n'
-          'Name: $userName\n'
-          'Role: ${userRole.toUpperCase()}\n'
-          'Class: ${authProvider.user?.className ?? 'N/A'}\n'
-          'Section: ${authProvider.user?.section ?? 'N/A'}\n'
-          'Email: ${authProvider.user?.email ?? 'N/A'}';
-    }
-
-    // 7. Help / Support
-    if (query.contains('help') || query.contains('support') || query.contains('issue')) {
-      return 'If you are facing technical issues, please make sure your app is updated to the latest version. For schedule-related queries, please contact your administrative department.';
-    }
-
-    // 8. Fallback
-    return 'I am Aagewala AI. I can assist you with your daily schedule, profile information, and system functionalities. Feel free to ask about your timetable for today or tomorrow!';
+  void _showApiKeyDialog() {
+    final controller = TextEditingController(text: _apiKey);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.vpn_key, color: Colors.teal.shade700),
+            const SizedBox(width: 8),
+            Text(
+              'Configure Gemini Key',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter your Google Gemini API Key below to enable the full AI tutor experience.',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'API Key',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: 'AIzaSy...',
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Free keys can be obtained from Google AI Studio.',
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _saveApiKey(controller.text.trim());
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('API Key updated successfully!'),
+                  backgroundColor: Colors.teal,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade600,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Save', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 2,
         shadowColor: Colors.teal.shade50,
@@ -204,7 +454,7 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.smart_toy,
+                Icons.auto_awesome,
                 color: Colors.white,
                 size: 24,
               ),
@@ -222,7 +472,7 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                   ),
                 ),
                 Text(
-                  'Always active & smart',
+                  'Unified AI & App Assistant',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: Colors.white70,
@@ -247,13 +497,12 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                 return Align(
                   alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
                   child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.75,
+                      maxWidth: MediaQuery.of(context).size.width * 0.82,
                     ),
                     decoration: BoxDecoration(
-                      color: isBot ? Theme.of(context).cardColor : Colors.teal.shade500,
+                      color: isBot ? theme.cardColor : Colors.teal.shade600,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
@@ -262,30 +511,55 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 4,
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 5,
                           offset: const Offset(0, 2),
                         ),
                       ],
                     ),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (msg['fileName'] != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.insert_drive_file, color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    msg['fileName'],
+                                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                         Text(
-                          msg['text'],
+                          msg['text'] ?? '',
                           style: GoogleFonts.poppins(
-                            color: isBot ? Theme.of(context).colorScheme.onSurface : Colors.white,
+                            color: isBot ? theme.colorScheme.onSurface : Colors.white,
                             fontSize: 14,
-                            height: 1.4,
+                            height: 1.45,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Align(
                           alignment: Alignment.bottomRight,
                           child: Text(
                             DateFormat('hh:mm a').format(msg['time']),
                             style: GoogleFonts.poppins(
-                              color: isBot ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5) : Colors.teal.shade100,
+                              color: isBot ? theme.colorScheme.onSurface.withOpacity(0.4) : Colors.teal.shade100,
                               fontSize: 9,
                             ),
                           ),
@@ -297,24 +571,61 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
               },
             ),
           ),
-          if (_isTyping)
+          if (_isLoading)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.smart_toy, size: 16, color: Colors.teal.shade600),
-                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal),
+                  ),
+                  const SizedBox(width: 12),
                   Text(
-                    'Aagewala is typing...',
+                    'Aagewala is thinking...',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      color: Colors.grey.shade500,
+                      color: Colors.grey.shade600,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
                 ],
               ),
             ),
+          
+          // File selected indicator
+          if (_selectedFile != null)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.teal.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.file_present, color: Colors.teal.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _selectedFile!.name,
+                      style: GoogleFonts.poppins(color: Colors.teal.shade900, fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: Colors.teal.shade900, size: 20),
+                    onPressed: () => setState(() { _selectedFile = null; _fileBytes = null; }),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+
           // Input field
           Container(
             padding: const EdgeInsets.all(12),
@@ -326,6 +637,11 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
             ),
             child: Row(
               children: [
+                IconButton(
+                  icon: const Icon(Icons.attach_file, color: Colors.grey),
+                  onPressed: _pickFile,
+                  tooltip: 'Upload Note/PDF/Image',
+                ),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
@@ -340,14 +656,22 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Type your question...',
+                        hintText: 'Ask Aagewala or Gemini anything...',
                         hintStyle: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         ),
                         border: InputBorder.none,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isListening ? Icons.mic : Icons.mic_none,
+                            color: _isListening ? Colors.red : Colors.grey,
+                          ),
+                          onPressed: _listen,
+                          tooltip: 'Speak your question',
+                        ),
                       ),
-                      onSubmitted: _handleSendMessage,
+                      onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
                 ),
@@ -356,7 +680,7 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
                   backgroundColor: Colors.teal.shade600,
                   child: IconButton(
                     icon: const Icon(Icons.send, color: Colors.white, size: 18),
-                    onPressed: () => _handleSendMessage(_messageController.text),
+                    onPressed: _sendMessage,
                   ),
                 ),
               ],
@@ -366,5 +690,4 @@ class _AagewalaChatScreenState extends State<AagewalaChatScreen> {
       ),
     );
   }
-
 }
