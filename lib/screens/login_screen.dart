@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/captcha_widget.dart';
 import '../widgets/support_chat_dialog.dart';
+import '../services/api_service.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
