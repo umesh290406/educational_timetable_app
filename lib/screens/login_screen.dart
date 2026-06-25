@@ -130,6 +130,8 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Icon(Icons.support_agent, color: Colors.teal.shade600),
       ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
