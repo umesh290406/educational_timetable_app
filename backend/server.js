@@ -180,6 +180,8 @@ async function initDB() {
     await query(`ALTER TABLE lectures ADD COLUMN IF NOT EXISTS college TEXT`);
     await query(`ALTER TABLE timetable ADD COLUMN IF NOT EXISTS specialization TEXT`);
     await query(`ALTER TABLE timetable ADD COLUMN IF NOT EXISTS college TEXT`);
+    await query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS "studentEmail" TEXT`);
+    await query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS "rollNo" TEXT`);
 
     // Online Tests tables
     await query(`
@@ -718,51 +720,6 @@ app.put('/api/lectures/:lectureId/cancel', async (req, res) => {
 });
 
 // =====================
-// NOTIFICATION HELPER
-// =====================
-async function notifyTargetedStudents(className, section, specialization, college, title, message, notificationType, lectureId = null) {
-  try {
-    let sqlQuery = `SELECT id, "fcmToken" FROM users WHERE role = 'student' AND UPPER(TRIM("className")) = UPPER(TRIM($1))`;
-    let params = [className];
-
-    if (section && section.trim() !== '') {
-      sqlQuery += ` AND (UPPER(TRIM(section)) = UPPER(TRIM($2)) OR section IS NULL OR section = '')`;
-      params.push(section);
-    }
-
-    if (college && college.trim() !== '') {
-      sqlQuery += ` AND (UPPER(TRIM(college)) = UPPER(TRIM($${params.length + 1})) OR college IS NULL OR college = '')`;
-      params.push(college);
-    }
-
-    const students = await query(sqlQuery, params);
-    
-    let fcmTokens = [];
-
-    for (const student of students.rows) {
-      await query(
-        `INSERT INTO notifications (id, "studentId", "lectureId", title, message, "notificationType", "scheduledAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [generateId(), student.id, lectureId, title, message, notificationType, new Date().toISOString()]
-      );
-      if (student.fcmToken) {
-        fcmTokens.push(student.fcmToken);
-      }
-    }
-
-    // Send real-time FCM Push Notifications
-    if (fcmTokens.length > 0) {
-      const payload = {
-        notification: { title, body: message },
-        tokens: fcmTokens
-      };
-      admin.messaging().sendEachForMulticast(payload).catch(e => console.error("FCM Send Error:", e));
-    }
-  } catch (error) {
-    console.error('Error in notifyTargetedStudents:', error);
-  }
-}
-
-// =====================
 // NOTIFICATION ROUTES
 // =====================
 
@@ -780,7 +737,7 @@ app.post('/api/notifications/schedule', async (req, res) => {
     const college = teacher ? teacher.college : null;
 
     const students = await query(
-      `SELECT id FROM users WHERE role = 'student' AND UPPER(TRIM("className")) = UPPER(TRIM($1)) AND UPPER(TRIM(section)) = UPPER(TRIM($2)) AND (college IS NULL OR UPPER(TRIM(college)) = UPPER(TRIM($3)))`,
+      `SELECT id, "fcmToken" FROM users WHERE role = 'student' AND UPPER(TRIM("className")) = UPPER(TRIM($1)) AND UPPER(TRIM(section)) = UPPER(TRIM($2)) AND (college IS NULL OR UPPER(TRIM(college)) = UPPER(TRIM($3)))`,
       [className, section, college]
     );
 
@@ -943,15 +900,6 @@ app.post('/api/timetable/create', async (req, res) => {
     await query(
       `INSERT INTO timetable (id, "subjectName", "teacherName", "className", section, specialization, college, day, "startTime", "endTime", "roomNumber") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [timetableId, subjectName, teacherName || teacher.name, parsedClass, section, parsedSpecialization, college, day, startTime, endTime, roomNumber]
-    );
-
-    // Trigger Notification
-    await notifyTargetedStudents(
-      parsedClass, section, parsedSpecialization, college,
-      'New Timetable Scheduled',
-      `Teacher ${teacherName || teacher.name} scheduled ${subjectName} on ${day} at ${startTime}`,
-      'timetable',
-      timetableId
     );
 
     res.status(201).json({ success: true, message: 'Timetable entry created successfully' });
@@ -1268,14 +1216,6 @@ app.post('/api/materials/upload', authenticateToken, upload.single('file'), asyn
       ]
     );
 
-    // Trigger Notification
-    await notifyTargetedStudents(
-      parsedClass, section, parsedSpecialization, college,
-      'New Study Material',
-      `Teacher ${user.name} uploaded notes for ${title}`,
-      'materials',
-      materialId
-    );
 
     res.status(201).json({ success: true, message: 'Material uploaded successfully', materialId, fileUrl });
   } catch (error) {
@@ -1371,15 +1311,6 @@ app.post('/api/virtual_classes', authenticateToken, async (req, res) => {
       `INSERT INTO virtual_classes (id, title, "className", section, specialization, college, "meetingLink", "scheduledTime", "teacherId", "teacherName")
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [classId, title, className, section, specialization, college, meetingLink, scheduledTime, req.user.userId, req.user.name]
-    );
-
-    // Trigger Notification to targeted students
-    await notifyTargetedStudents(
-      className, section, specialization, college,
-      'Live Class Scheduled',
-      `Teacher ${req.user.name} scheduled a live class: ${title}`,
-      'virtual_class',
-      classId
     );
 
     res.json({ success: true, message: 'Virtual Class created successfully', classId });
