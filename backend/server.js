@@ -182,6 +182,8 @@ async function initDB() {
     await query(`ALTER TABLE timetable ADD COLUMN IF NOT EXISTS college TEXT`);
     await query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS "studentEmail" TEXT`);
     await query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS "rollNo" TEXT`);
+    await query(`ALTER TABLE exam_schedules ADD COLUMN IF NOT EXISTS specialization TEXT`);
+    await query(`ALTER TABLE exam_schedules ADD COLUMN IF NOT EXISTS college TEXT`);
 
     // Online Tests tables
     await query(`
@@ -1668,11 +1670,27 @@ app.post('/api/exams', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'className, subjectName, and examDate are required' });
     }
 
+    // Fetch the teacher's profile to get their college
+    const teacherResult = await query(
+      `SELECT college FROM users WHERE id = $1`,
+      [req.user.userId]
+    );
+    const college = teacherResult.rows[0]?.college || null;
+
+    // Parse class and specialization from className parameter if it includes ' - '
+    let parsedClass = className;
+    let parsedSpecialization = null;
+    if (className && className.includes(' - ')) {
+      const parts = className.split(' - ');
+      parsedClass = parts[0].trim();
+      parsedSpecialization = parts.slice(1).join(' - ').trim();
+    }
+
     const examId = generateId();
     await query(
-      `INSERT INTO exam_schedules (id, "className", section, "subjectName", "examDate", "startTime", "endTime", venue, "teacherId")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [examId, className, section || '', subjectName, examDate, startTime || '', endTime || '', venue || '', req.user.userId]
+      `INSERT INTO exam_schedules (id, "className", section, specialization, college, "subjectName", "examDate", "startTime", "endTime", venue, "teacherId")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [examId, parsedClass, section || '', parsedSpecialization || null, college, subjectName, examDate, startTime || '', endTime || '', venue || '', req.user.userId]
     );
 
     res.status(201).json({ success: true, message: 'Exam scheduled successfully', examId });
@@ -1684,10 +1702,33 @@ app.post('/api/exams', authenticateToken, async (req, res) => {
 // Get exams for a class/section
 app.get('/api/exams/:className/:section', authenticateToken, async (req, res) => {
   try {
-    const { className, section } = req.params;
+    const { className: paramClass, section: paramSection } = req.params;
+    
+    // Parse paramClass if combined, otherwise use the user's specialization/college as filters
+    let parsedClass = paramClass;
+    let parsedSpecialization = req.user.specialization || null;
+    
+    if (paramClass && paramClass.includes(' - ')) {
+      const parts = paramClass.split(' - ');
+      parsedClass = parts[0].trim();
+      parsedSpecialization = parts.slice(1).join(' - ').trim();
+    }
+
+    const college = req.user.college || null;
+
     const result = await query(
-      `SELECT * FROM exam_schedules WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY "examDate" ASC`,
-      [className, section]
+      `SELECT * FROM exam_schedules
+       WHERE COALESCE(LOWER(TRIM("className")), '') = COALESCE(LOWER(TRIM($1)), '')
+         AND COALESCE(LOWER(TRIM(section)), '') = COALESCE(LOWER(TRIM($2)), '')
+         AND COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($3)), '')
+         AND COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($4)), '')
+       ORDER BY "examDate" ASC`,
+      [
+        parsedClass,
+        paramSection || '',
+        parsedSpecialization || '',
+        college || ''
+      ]
     );
     res.json({ success: true, exams: result.rows });
   } catch (error) {
