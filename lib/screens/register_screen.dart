@@ -155,7 +155,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _showSnackBar(context, 'Registration successful!', isError: false);
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
-            if (_selectedRole == 'student') {
+            final actualRole = authProvider.user?.role ?? _selectedRole;
+            if (actualRole == 'student') {
               Navigator.of(context).pushReplacementNamed('/student');
             } else {
               Navigator.of(context).pushReplacementNamed('/teacher');

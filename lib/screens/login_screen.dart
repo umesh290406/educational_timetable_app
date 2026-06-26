@@ -56,7 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result['success'] == true) {
       if (mounted) {
-        if (_selectedRole == 'student') {
+        final actualRole = authProvider.user?.role ?? _selectedRole;
+        if (actualRole == 'student') {
           Navigator.of(context).pushReplacementNamed('/student');
         } else {
           Navigator.of(context).pushReplacementNamed('/teacher');
