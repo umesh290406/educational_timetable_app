@@ -94,8 +94,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
       }
     });
     
-    // Polling for notifications every 60 seconds (was 10s — too aggressive for battery/bandwidth)
-    _notificationTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
+    // Polling for notifications every 10 seconds for fast demo updates
+    _notificationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _checkNewNotifications();
     });
   }
