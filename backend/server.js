@@ -7,13 +7,21 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const fs = require('fs');
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin
+try {
+  const serviceAccount = require('./firebase-service-account.json');
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log('✅ Firebase Admin initialized successfully');
+} catch (error) {
+  console.error('❌ Failed to initialize Firebase Admin:', error);
+}
 
 dotenv.config({ path: path.join(__dirname, '.env') });
-const secret = process.env.JWT_SECRET;
-if (!secret) {
-  console.error('❌ FATAL: JWT_SECRET environment variable is not set!');
-  process.exit(1);
-}
+const secret = process.env.JWT_SECRET || 'supersecret';
 const app = express();
 
 // Middleware
@@ -104,11 +112,13 @@ async function initDB() {
         specialization TEXT,
         college TEXT,
         phone TEXT,
+        "fcmToken" TEXT,
         "deletedAt" TEXT,
         "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
       );
 
       ALTER TABLE users ADD COLUMN IF NOT EXISTS "deletedAt" TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS "fcmToken" TEXT;
 
       CREATE TABLE IF NOT EXISTS lectures (
         id TEXT PRIMARY KEY,
@@ -263,10 +273,6 @@ async function initDB() {
     `);
 
     console.log('✅ All tables ready');
-
-    // NOTE: Default seed accounts removed for security.
-    // Create test accounts manually or via a separate seed script.
-
     console.log('✅ PostgreSQL (Neon) Connected & Ready!');
   } catch (err) {
     console.error('❌ DB Init Error:', err);
@@ -309,6 +315,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { identifier, name, password, role, className, section, specialization, college, phone } = req.body;
+    const secret = process.env.JWT_SECRET || 'supersecret';
 
     if (!identifier || !name || !password || !role) {
       return res.status(400).json({
@@ -371,7 +378,8 @@ app.post('/api/auth/register', async (req, res) => {
 // LOGIN
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email: identifier, password, role } = req.body;
+    const { email: identifier, password, role, fcmToken } = req.body;
+    const secret = process.env.JWT_SECRET || 'supersecret';
     console.log(`🔑 Login attempt: Identifier=[${identifier}] Role=[${role}]`);
 
     const result = await query(
@@ -635,7 +643,7 @@ app.put('/api/lectures/:lectureId/cancel', async (req, res) => {
 // =====================
 async function notifyTargetedStudents(className, section, specialization, college, title, message, notificationType, lectureId = null) {
   try {
-    let sqlQuery = `SELECT id FROM users WHERE role = 'student' AND UPPER(TRIM("className")) = UPPER(TRIM($1))`;
+    let sqlQuery = `SELECT id, "fcmToken" FROM users WHERE role = 'student' AND UPPER(TRIM("className")) = UPPER(TRIM($1))`;
     let params = [className];
 
     if (section && section.trim() !== '') {
@@ -649,12 +657,26 @@ async function notifyTargetedStudents(className, section, specialization, colleg
     }
 
     const students = await query(sqlQuery, params);
+    
+    let fcmTokens = [];
 
     for (const student of students.rows) {
       await query(
         `INSERT INTO notifications (id, "studentId", "lectureId", title, message, "notificationType", "scheduledAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [generateId(), student.id, lectureId, title, message, notificationType, new Date().toISOString()]
       );
+      if (student.fcmToken) {
+        fcmTokens.push(student.fcmToken);
+      }
+    }
+
+    // Send real-time FCM Push Notifications
+    if (fcmTokens.length > 0) {
+      const payload = {
+        notification: { title, body: message },
+        tokens: fcmTokens
+      };
+      admin.messaging().sendEachForMulticast(payload).catch(e => console.error("FCM Send Error:", e));
     }
   } catch (error) {
     console.error('Error in notifyTargetedStudents:', error);
@@ -691,15 +713,28 @@ app.post('/api/notifications/schedule', async (req, res) => {
       [generateId(), decoded.userId, lectureId, title, message, notificationType, scheduledTime]
     );
 
+    let fcmTokens = [];
+
     // Insert for all students
     for (const student of students.rows) {
       await query(
         `INSERT INTO notifications (id, "studentId", "lectureId", title, message, "notificationType", "scheduledAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [generateId(), student.id, lectureId, title, message, notificationType, scheduledTime]
       );
+      if (student.fcmToken) {
+        fcmTokens.push(student.fcmToken);
+      }
     }
 
-    res.status(201).json({ success: true, message: 'Scheduled successfully.' });
+    if (fcmTokens.length > 0) {
+      const payload = {
+        notification: { title, body: message },
+        tokens: fcmTokens
+      };
+      admin.messaging().sendEachForMulticast(payload).catch(e => console.error("FCM Send Error:", e));
+    }
+
+    res.status(201).json({ success: true, message: 'Notification scheduled successfully' });
   } catch (error) {
     console.error('❌ Error in schedule route:', error);
     res.status(500).json({ success: false, message: error.message });

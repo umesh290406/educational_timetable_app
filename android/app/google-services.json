@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "420994380464",
+    "project_id": "time-management-e388d",
+    "storage_bucket": "time-management-e388d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:420994380464:android:4dcd01a8c7607b8fa84175",
+        "android_client_info": {
+          "package_name": "com.example.educational_timetable_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyxwDUnN5o2UR2K06SeE3BEHftf1Cjnic"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -21,6 +21,8 @@ dependencies:
   file_picker: ^11.0.2
   url_launcher: ^6.3.2
   speech_to_text: ^7.4.0
+  firebase_core: ^4.11.0
+  firebase_messaging: ^16.4.1
 
 dev_dependencies:
   flutter_test:

@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/lecture_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiService {
   static const String baseUrl = 'https://timetable-backend-soc3.onrender.com';
@@ -30,6 +32,15 @@ class ApiService {
     required String role,
   }) async {
     try {
+      String? fcmToken;
+      if (!kIsWeb) {
+        try {
+          fcmToken = await FirebaseMessaging.instance.getToken();
+        } catch (e) {
+          print('Error getting FCM token: $e');
+        }
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/login'),
         headers: _headers,
@@ -37,6 +48,7 @@ class ApiService {
           'email': emailOrUsername.trim(),
           'password': password.trim(),
           'role': role,
+          'fcmToken': fcmToken,
         }),
       ).timeout(const Duration(seconds: 60));
 
