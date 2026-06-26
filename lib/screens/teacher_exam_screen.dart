@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../services/exam_service.dart';
 import '../services/attendance_service.dart';
 import '../widgets/loading_widget.dart';
 import '../utils/class_config.dart';
+import '../providers/auth_provider.dart';
 
 class TeacherExamScreen extends StatefulWidget {
   const TeacherExamScreen({super.key});
@@ -19,11 +21,23 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
   String _selectedSection = 'A';
   List<ExamSchedule> _exams = [];
   bool _isLoading = false;
+  bool _initialized = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadExams();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final user = authProvider.user;
+      if (user != null) {
+        final parsed = ClassConfig.parseClassAndSpecialization(user.className);
+        _selectedClass = parsed['class'] ?? '11th';
+        _selectedSpecialization = parsed['specialization'] ?? 'Commerce';
+        _selectedSection = user.section ?? 'A';
+      }
+      _initialized = true;
+      _loadExams();
+    }
   }
 
   Future<void> _loadExams() async {

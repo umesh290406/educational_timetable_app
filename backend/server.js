@@ -1720,8 +1720,16 @@ app.get('/api/exams/:className/:section', authenticateToken, async (req, res) =>
       `SELECT * FROM exam_schedules
        WHERE COALESCE(LOWER(TRIM("className")), '') = COALESCE(LOWER(TRIM($1)), '')
          AND COALESCE(LOWER(TRIM(section)), '') = COALESCE(LOWER(TRIM($2)), '')
-         AND COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($3)), '')
-         AND COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($4)), '')
+         AND (
+           COALESCE(LOWER(TRIM(specialization)), '') = ''
+           OR COALESCE(LOWER(TRIM($3)), '') = ''
+           OR COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($3)), '')
+         )
+         AND (
+           COALESCE(LOWER(TRIM(college)), '') = ''
+           OR COALESCE(LOWER(TRIM($4)), '') = ''
+           OR COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($4)), '')
+         )
        ORDER BY "examDate" ASC`,
       [
         parsedClass,
