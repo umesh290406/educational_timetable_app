@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 class AttendanceStudent {
   final String rollNo;
@@ -67,29 +68,28 @@ class AttendanceRecord {
 }
 
 class AttendanceService {
-  static const String _recordsKey = 'attendance_records_v1';
   static const String _studentRollKey = 'student_roll_no_v1';
   static const String _teacherIdKey = 'teacher_id_no_v1';
 
-  // Get saved Teacher ID per email
+  // Get saved Teacher ID per email (local preference — not migrated)
   static Future<String?> getSavedTeacherId(String email) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('${_teacherIdKey}_${email.trim().toLowerCase()}');
   }
 
-  // Save Teacher ID per email
+  // Save Teacher ID per email (local preference — not migrated)
   static Future<void> saveTeacherId(String email, String teacherId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('${_teacherIdKey}_${email.trim().toLowerCase()}', teacherId.trim());
   }
 
-  // Get saved Student Roll Number per email
+  // Get saved Student Roll Number per email (local preference — not migrated)
   static Future<String?> getSavedRollNo(String email) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('${_studentRollKey}_${email.trim().toLowerCase()}');
   }
 
-  // Register a student globally
+  // Register a student globally (now saves to backend roster)
   static Future<void> registerStudent({
     required String email,
     required String name,
@@ -97,27 +97,12 @@ class AttendanceService {
     required String className,
     required String section,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('global_registered_students') ?? '[]';
-    final List<dynamic> jsonList = jsonDecode(data);
-    
-    // Remove any existing entry with the same email or roll number in the same class/section
-    jsonList.removeWhere((e) => 
-      e['email']?.toString().toLowerCase() == email.toLowerCase() ||
-      (e['rollNo']?.toString() == rollNo && 
-       e['className']?.toString().toLowerCase() == className.toLowerCase() &&
-       e['section']?.toString().toLowerCase() == section.toLowerCase())
+    await ApiService.saveStudentToRoster(
+      rollNo: rollNo,
+      name: name,
+      className: className,
+      section: section,
     );
-    
-    jsonList.add({
-      'email': email,
-      'name': name,
-      'rollNo': rollNo,
-      'className': className,
-      'section': section,
-    });
-    
-    await prefs.setString('global_registered_students', jsonEncode(jsonList));
   }
 
   // Save Student Roll Number per email and register globally
@@ -136,22 +121,16 @@ class AttendanceService {
     }
   }
 
-  // Get student roster matching class and section from global registry
+  // Get student roster matching class and section from backend
   static Future<List<AttendanceStudent>> getRoster(String className, String section) async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('global_registered_students') ?? '[]';
-    final List<dynamic> jsonList = jsonDecode(data);
-    
-    final List<AttendanceStudent> roster = [];
-    for (final e in jsonList) {
-      if (e['className']?.toString().toLowerCase() == className.toLowerCase() &&
-          e['section']?.toString().toLowerCase() == section.toLowerCase()) {
-        roster.add(AttendanceStudent(
-          rollNo: e['rollNo']?.toString() ?? '',
-          name: e['name'] ?? '',
-        ));
-      }
-    }
+    final list = await ApiService.getRoster(className, section);
+    final List<AttendanceStudent> roster = list.map((e) {
+      final map = e as Map<String, dynamic>;
+      return AttendanceStudent(
+        rollNo: map['rollNo']?.toString() ?? '',
+        name: map['name'] ?? '',
+      );
+    }).toList();
     
     // Sort roster by roll number
     roster.sort((a, b) {
@@ -163,13 +142,12 @@ class AttendanceService {
     return roster;
   }
 
-  // Legacy roster save method (kept for interface compatibility but uses global registry)
+  // Legacy roster save method (kept for interface compatibility)
   static Future<void> saveRoster(String className, String section, List<AttendanceStudent> roster) async {
     for (final s in roster) {
-      await registerStudent(
-        email: 'manual_roll_${s.rollNo}@class.com',
-        name: s.name,
+      await ApiService.saveStudentToRoster(
         rollNo: s.rollNo,
+        name: s.name,
         className: className,
         section: section,
       );
@@ -178,60 +156,34 @@ class AttendanceService {
 
   // Add a student to the roster manually
   static Future<void> addStudentToRoster(String className, String section, AttendanceStudent student) async {
-    await registerStudent(
-      email: 'manual_roll_${student.rollNo}@class.com',
-      name: student.name,
+    await ApiService.saveStudentToRoster(
       rollNo: student.rollNo,
+      name: student.name,
       className: className,
       section: section,
     );
   }
 
-  // Fetch all attendance records
-  static Future<List<AttendanceRecord>> getAllRecords() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString(_recordsKey);
-    if (data == null) return [];
-    final List<dynamic> jsonList = jsonDecode(data);
-    return jsonList.map((e) => AttendanceRecord.fromJson(e)).toList();
-  }
-
-  // Save all attendance records
-  static Future<void> saveAllRecords(List<AttendanceRecord> records) async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = jsonEncode(records.map((e) => e.toJson()).toList());
-    await prefs.setString(_recordsKey, data);
-  }
-
   // Save a batch of marked attendance records
   static Future<void> saveBatchAttendance(List<AttendanceRecord> newRecords) async {
-    final allRecords = await getAllRecords();
+    final records = newRecords.map((r) => {
+      'rollNo': r.rollNo,
+      'studentName': r.studentName,
+      'subjectName': r.subjectName,
+      'date': r.date,
+      'status': r.status,
+      'className': r.className,
+      'section': r.section,
+    }).toList();
     
-    for (final newRec in newRecords) {
-      // Avoid duplicates for the same student, subject, class, and date
-      allRecords.removeWhere((e) =>
-          e.rollNo == newRec.rollNo &&
-          e.subjectName.toLowerCase() == newRec.subjectName.toLowerCase() &&
-          e.className == newRec.className &&
-          e.section == newRec.section &&
-          e.date == newRec.date);
-      allRecords.add(newRec);
-    }
-    
-    await saveAllRecords(allRecords);
+    await ApiService.saveBatchAttendance(records);
   }
 
   // Get attendance stats for a specific student
   static Future<Map<String, dynamic>> getStudentStats(String rollNo, String className, String section) async {
-    final allRecords = await getAllRecords();
+    final result = await ApiService.getStudentAttendanceStats(rollNo, className, section);
     
-    // Filter records for this student
-    final studentRecords = allRecords.where((e) =>
-        e.rollNo.trim() == rollNo.trim() &&
-        e.className.toLowerCase() == className.toLowerCase() &&
-        e.section.toLowerCase() == section.toLowerCase()).toList();
-
-    if (studentRecords.isEmpty) {
+    if (result['success'] != true) {
       return {
         'total': 0,
         'attended': 0,
@@ -242,39 +194,30 @@ class AttendanceService {
       };
     }
 
-    final attended = studentRecords.where((e) => e.status == 'Present').length;
-    final missed = studentRecords.length - attended;
-    final percentage = (attended / studentRecords.length) * 100;
+    final records = (result['records'] as List<dynamic>? ?? [])
+        .map((e) => AttendanceRecord.fromJson(e as Map<String, dynamic>))
+        .toList();
 
-    // Subject breakdown
+    // Convert subjectStats from backend format
+    final rawSubjectStats = result['subjectStats'] as Map<String, dynamic>? ?? {};
     final subjectStats = <String, Map<String, dynamic>>{};
-    for (final rec in studentRecords) {
-      if (!subjectStats.containsKey(rec.subjectName)) {
-        subjectStats[rec.subjectName] = {'attended': 0, 'total': 0};
+    rawSubjectStats.forEach((key, value) {
+      if (value is Map<String, dynamic>) {
+        subjectStats[key] = {
+          'attended': value['attended'] ?? 0,
+          'total': value['total'] ?? 0,
+          'percentage': (value['percentage'] as num?)?.toDouble() ?? 0.0,
+        };
       }
-      subjectStats[rec.subjectName]!['total'] = (subjectStats[rec.subjectName]!['total'] as int) + 1;
-      if (rec.status == 'Present') {
-        subjectStats[rec.subjectName]!['attended'] = (subjectStats[rec.subjectName]!['attended'] as int) + 1;
-      }
-    }
-
-    // Calculate percentages for each subject
-    subjectStats.forEach((key, value) {
-      final subAttended = value['attended'] as int;
-      final subTotal = value['total'] as int;
-      value['percentage'] = (subAttended / subTotal) * 100;
     });
 
-    // History sorted chronologically descending
-    studentRecords.sort((a, b) => b.date.compareTo(a.date));
-
     return {
-      'total': studentRecords.length,
-      'attended': attended,
-      'missed': missed,
-      'percentage': percentage,
+      'total': result['total'] ?? 0,
+      'attended': result['attended'] ?? 0,
+      'missed': result['missed'] ?? 0,
+      'percentage': (result['percentage'] as num?)?.toDouble() ?? 0.0,
       'subjectStats': subjectStats,
-      'history': studentRecords,
+      'history': records,
     };
   }
 
@@ -285,45 +228,39 @@ class AttendanceService {
     required String subjectName,
     required String date,
   }) async {
-    final allRecords = await getAllRecords();
-    allRecords.removeWhere((e) =>
-        e.className.toLowerCase() == className.toLowerCase() &&
-        e.section.toLowerCase() == section.toLowerCase() &&
-        e.subjectName.toLowerCase() == subjectName.toLowerCase() &&
-        e.date == date);
-    await saveAllRecords(allRecords);
+    await ApiService.deleteAttendanceBatch(
+      className: className,
+      section: section,
+      subjectName: subjectName,
+      date: date,
+    );
   }
 
   // Get all unique marked attendance sessions for a class/section
   static Future<List<Map<String, String>>> getMarkedSessions(String className, String section) async {
-    final allRecords = await getAllRecords();
-    final Map<String, Map<String, String>> sessions = {};
-
-    for (final rec in allRecords) {
-      if (rec.className.toLowerCase() == className.toLowerCase() &&
-          rec.section.toLowerCase() == section.toLowerCase()) {
-        final key = '${rec.subjectName}_${rec.date}';
-        sessions[key] = {
-          'subject': rec.subjectName,
-          'date': rec.date,
-        };
-      }
-    }
-    return sessions.values.toList()..sort((a, b) => b['date']!.compareTo(a['date']!));
+    final list = await ApiService.getAttendanceSessions(className, section);
+    return list.map((e) {
+      final map = e as Map<String, dynamic>;
+      return {
+        'subject': map['subject']?.toString() ?? '',
+        'date': map['date']?.toString() ?? '',
+      };
+    }).toList();
   }
 
   // Generate a complete class report card list for the teacher dashboard
   static Future<List<Map<String, dynamic>>> getClassReport(String className, String section) async {
     final roster = await getRoster(className, section);
-    final allRecords = await getAllRecords();
+    final recordsList = await ApiService.getAttendanceRecords(className, section);
+    final allRecords = recordsList
+        .map((e) => AttendanceRecord.fromJson(e as Map<String, dynamic>))
+        .toList();
     
     final List<Map<String, dynamic>> report = [];
     
     for (final student in roster) {
       final studentRecords = allRecords.where((e) =>
-          e.rollNo.trim() == student.rollNo.trim() &&
-          e.className.toLowerCase() == className.toLowerCase() &&
-          e.section.toLowerCase() == section.toLowerCase()).toList();
+          e.rollNo.trim() == student.rollNo.trim()).toList();
 
       if (studentRecords.isEmpty) {
         report.add({

@@ -345,8 +345,8 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
     }
 
     // Prepare mutable attendance map
-    final Map<String, String> tempAttendance = Map<String, String>.from(exam.attendance);
-    // Initialize un-marked students as Present
+    final Map<String, String> tempAttendance = {};
+    // Initialize all students as Present
     for (final student in roster) {
       if (!tempAttendance.containsKey(student.rollNo)) {
         tempAttendance[student.rollNo] = 'Present';
@@ -458,10 +458,21 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () async {
-                    await ExamService.markExamAttendance(
-                      examId: exam.id,
-                      attendance: tempAttendance,
-                    );
+                    // Save exam attendance via the regular attendance system
+                    final records = <AttendanceRecord>[];
+                    for (final student in roster) {
+                      records.add(AttendanceRecord(
+                        id: '',
+                        rollNo: student.rollNo,
+                        studentName: student.name,
+                        subjectName: '${exam.subjectName} (Exam)',
+                        date: exam.examDate,
+                        status: tempAttendance[student.rollNo] ?? 'Present',
+                        className: exam.className,
+                        section: exam.section,
+                      ));
+                    }
+                    await AttendanceService.saveBatchAttendance(records);
                     Navigator.pop(context);
                     _loadExams();
                     ScaffoldMessenger.of(this.context).showSnackBar(
@@ -681,8 +692,6 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                         itemCount: _exams.length,
                         itemBuilder: (context, index) {
                           final exam = _exams[index];
-                          final totalStudents = exam.attendance.length;
-                          final presentStudents = exam.attendance.values.where((v) => v == 'Present').length;
 
                           return Card(
                             elevation: 2,
@@ -759,17 +768,6 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                                       ),
                                     ],
                                   ),
-                                  if (totalStudents > 0) ...[
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Attendance: $presentStudents / $totalStudents Present',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.teal.shade600,
-                                      ),
-                                    ),
-                                  ],
                                   const Divider(height: 24),
                                   SizedBox(
                                     width: double.infinity,
@@ -781,7 +779,7 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                                       onPressed: () => _openExamAttendanceSheet(exam),
                                       icon: const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
                                       label: Text(
-                                        totalStudents > 0 ? 'Update Exam Attendance' : 'Track Student Attendance',
+                                        'Track Student Attendance',
                                         style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
                                       ),
                                     ),

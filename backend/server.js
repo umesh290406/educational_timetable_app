@@ -11,7 +11,12 @@ const admin = require('firebase-admin');
 
 // Initialize Firebase Admin
 try {
-  const serviceAccount = require('./firebase-service-account.json');
+  let serviceAccount;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else {
+    serviceAccount = require('./firebase-service-account.json');
+  }
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
@@ -272,6 +277,74 @@ async function initDB() {
       );
     `);
 
+    // Leaves table
+    await query(`
+      CREATE TABLE IF NOT EXISTS leaves (
+        id TEXT PRIMARY KEY,
+        "studentId" TEXT NOT NULL,
+        "studentEmail" TEXT,
+        "studentName" TEXT NOT NULL,
+        "rollNo" TEXT,
+        "className" TEXT NOT NULL,
+        section TEXT,
+        reason TEXT NOT NULL,
+        "startDate" TEXT NOT NULL,
+        "endDate" TEXT NOT NULL,
+        status TEXT DEFAULT 'Pending',
+        comment TEXT DEFAULT '',
+        "appliedAt" TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Exam Schedules table
+    await query(`
+      CREATE TABLE IF NOT EXISTS exam_schedules (
+        id TEXT PRIMARY KEY,
+        "className" TEXT NOT NULL,
+        section TEXT,
+        "subjectName" TEXT NOT NULL,
+        "examDate" TEXT NOT NULL,
+        "startTime" TEXT NOT NULL,
+        "endTime" TEXT NOT NULL,
+        venue TEXT,
+        "teacherId" TEXT NOT NULL,
+        "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Student Roster table
+    await query(`
+      CREATE TABLE IF NOT EXISTS student_roster (
+        id TEXT PRIMARY KEY,
+        "rollNo" TEXT NOT NULL,
+        name TEXT NOT NULL,
+        "className" TEXT NOT NULL,
+        section TEXT NOT NULL,
+        address TEXT DEFAULT '',
+        "contactNo" TEXT DEFAULT '',
+        "parentsNo" TEXT DEFAULT '',
+        birthday TEXT DEFAULT '',
+        "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE("rollNo", "className", section)
+      );
+    `);
+
+    // Attendance Records table
+    await query(`
+      CREATE TABLE IF NOT EXISTS attendance_records (
+        id TEXT PRIMARY KEY,
+        "rollNo" TEXT NOT NULL,
+        "studentName" TEXT NOT NULL,
+        "subjectName" TEXT NOT NULL,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Present',
+        "className" TEXT NOT NULL,
+        section TEXT NOT NULL,
+        "teacherId" TEXT,
+        "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('✅ All tables ready');
     console.log('✅ PostgreSQL (Neon) Connected & Ready!');
   } catch (err) {
@@ -429,6 +502,12 @@ app.post('/api/auth/login', async (req, res) => {
           daysLeft: 30 - diffDays
         });
       }
+    }
+
+    // Save FCM token if provided
+    if (fcmToken) {
+      await query(`UPDATE users SET "fcmToken" = $1 WHERE id = $2`, [fcmToken, user.id]);
+      console.log(`📱 FCM token saved for user ${user.name}`);
     }
 
     const token = jwt.sign(
@@ -1498,6 +1577,322 @@ app.delete('/api/users/block/:blockedId', authenticateToken, async (req, res) =>
       [blockerId, blockedId]
     );
     res.json({ success: true, message: 'User unblocked' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// =====================
+// LEAVE MANAGEMENT ROUTES
+// =====================
+
+// Student applies for leave
+app.post('/api/leaves', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const { rollNo, reason, startDate, endDate } = req.body;
+
+    if (!reason || !startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'Reason, startDate, and endDate are required' });
+    }
+
+    const leaveId = generateId();
+    await query(
+      `INSERT INTO leaves (id, "studentId", "studentEmail", "studentName", "rollNo", "className", section, reason, "startDate", "endDate", status, comment, "appliedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Pending', '', $11)`,
+      [leaveId, user.userId, user.email || '', user.name, rollNo || '', user.className || '', user.section || '', reason, startDate, endDate, new Date().toISOString()]
+    );
+
+    // Fetch teacher info to get className and section from user record
+    const userRow = await query(`SELECT "className", section FROM users WHERE id = $1`, [user.userId]);
+    const studentInfo = userRow.rows[0];
+
+    res.status(201).json({ success: true, message: 'Leave applied successfully', leaveId });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Teacher fetches leaves for a class/section
+app.get('/api/leaves/teacher/:className/:section', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can access this' });
+
+    const { className, section } = req.params;
+    const result = await query(
+      `SELECT * FROM leaves WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY "appliedAt" DESC`,
+      [className, section]
+    );
+    res.json({ success: true, leaves: result.rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Student fetches their own leaves
+app.get('/api/leaves/student', authenticateToken, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT * FROM leaves WHERE "studentId" = $1 ORDER BY "appliedAt" DESC`,
+      [req.user.userId]
+    );
+    res.json({ success: true, leaves: result.rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Teacher approves/rejects a leave
+app.put('/api/leaves/:id/status', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can update leave status' });
+
+    const { id } = req.params;
+    const { status, comment } = req.body;
+
+    if (!status || !['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be Approved or Rejected' });
+    }
+
+    await query(
+      `UPDATE leaves SET status = $1, comment = $2 WHERE id = $3`,
+      [status, comment || '', id]
+    );
+    res.json({ success: true, message: `Leave ${status} successfully` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// =====================
+// EXAM SCHEDULE ROUTES
+// =====================
+
+// Teacher creates exam
+app.post('/api/exams', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can create exams' });
+
+    const { className, section, subjectName, examDate, startTime, endTime, venue } = req.body;
+    if (!className || !subjectName || !examDate) {
+      return res.status(400).json({ success: false, message: 'className, subjectName, and examDate are required' });
+    }
+
+    const examId = generateId();
+    await query(
+      `INSERT INTO exam_schedules (id, "className", section, "subjectName", "examDate", "startTime", "endTime", venue, "teacherId")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [examId, className, section || '', subjectName, examDate, startTime || '', endTime || '', venue || '', req.user.userId]
+    );
+
+    res.status(201).json({ success: true, message: 'Exam scheduled successfully', examId });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get exams for a class/section
+app.get('/api/exams/:className/:section', authenticateToken, async (req, res) => {
+  try {
+    const { className, section } = req.params;
+    const result = await query(
+      `SELECT * FROM exam_schedules WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY "examDate" ASC`,
+      [className, section]
+    );
+    res.json({ success: true, exams: result.rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete exam
+app.delete('/api/exams/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can delete exams' });
+
+    const { id } = req.params;
+    const exam = await query(`SELECT "teacherId" FROM exam_schedules WHERE id = $1`, [id]);
+    if (exam.rows.length === 0) return res.status(404).json({ success: false, message: 'Exam not found' });
+    if (exam.rows[0].teacherId !== req.user.userId) return res.status(403).json({ success: false, message: 'You can only delete your own exams' });
+
+    await query(`DELETE FROM exam_schedules WHERE id = $1`, [id]);
+    res.json({ success: true, message: 'Exam deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// =====================
+// STUDENT ROSTER ROUTES
+// =====================
+
+// Add/update student in roster
+app.post('/api/roster', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can manage roster' });
+
+    const { rollNo, name, className, section, address, contactNo, parentsNo, birthday } = req.body;
+    if (!rollNo || !name || !className || !section) {
+      return res.status(400).json({ success: false, message: 'rollNo, name, className, and section are required' });
+    }
+
+    // Upsert — delete existing entry then insert
+    await query(
+      `DELETE FROM student_roster WHERE "rollNo" = $1 AND LOWER("className") = LOWER($2) AND LOWER(section) = LOWER($3)`,
+      [rollNo, className, section]
+    );
+
+    const rosterId = generateId();
+    await query(
+      `INSERT INTO student_roster (id, "rollNo", name, "className", section, address, "contactNo", "parentsNo", birthday)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [rosterId, rollNo, name, className, section, address || '', contactNo || '', parentsNo || '', birthday || '']
+    );
+
+    res.status(201).json({ success: true, message: 'Student added to roster' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get roster for a class/section
+app.get('/api/roster/:className/:section', authenticateToken, async (req, res) => {
+  try {
+    const { className, section } = req.params;
+    const result = await query(
+      `SELECT * FROM student_roster WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY "rollNo" ASC`,
+      [className, section]
+    );
+    res.json({ success: true, students: result.rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete student from roster
+app.delete('/api/roster/:className/:section/:rollNo', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can manage roster' });
+
+    const { className, section, rollNo } = req.params;
+    await query(
+      `DELETE FROM student_roster WHERE "rollNo" = $1 AND LOWER("className") = LOWER($2) AND LOWER(section) = LOWER($3)`,
+      [rollNo, className, section]
+    );
+    res.json({ success: true, message: 'Student removed from roster' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// =====================
+// ATTENDANCE ROUTES
+// =====================
+
+// Save a batch of attendance records
+app.post('/api/attendance/batch', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can mark attendance' });
+
+    const { records } = req.body; // Array of { rollNo, studentName, subjectName, date, status, className, section }
+    if (!records || records.length === 0) {
+      return res.status(400).json({ success: false, message: 'No records provided' });
+    }
+
+    for (const rec of records) {
+      // Remove existing record for the same student/subject/date/class/section to avoid duplicates
+      await query(
+        `DELETE FROM attendance_records WHERE "rollNo" = $1 AND LOWER("subjectName") = LOWER($2) AND date = $3 AND LOWER("className") = LOWER($4) AND LOWER(section) = LOWER($5)`,
+        [rec.rollNo, rec.subjectName, rec.date, rec.className, rec.section]
+      );
+
+      const recId = generateId();
+      await query(
+        `INSERT INTO attendance_records (id, "rollNo", "studentName", "subjectName", date, status, "className", section, "teacherId")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [recId, rec.rollNo, rec.studentName, rec.subjectName, rec.date, rec.status, rec.className, rec.section, req.user.userId]
+      );
+    }
+
+    res.json({ success: true, message: `${records.length} attendance records saved` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get all attendance records for a class/section
+app.get('/api/attendance/:className/:section', authenticateToken, async (req, res) => {
+  try {
+    const { className, section } = req.params;
+    const result = await query(
+      `SELECT * FROM attendance_records WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY date DESC`,
+      [className, section]
+    );
+    res.json({ success: true, records: result.rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get attendance stats for a specific student
+app.get('/api/attendance/student/:rollNo/:className/:section', authenticateToken, async (req, res) => {
+  try {
+    const { rollNo, className, section } = req.params;
+    const result = await query(
+      `SELECT * FROM attendance_records WHERE "rollNo" = $1 AND LOWER("className") = LOWER($2) AND LOWER(section) = LOWER($3) ORDER BY date DESC`,
+      [rollNo, className, section]
+    );
+
+    const records = result.rows;
+    const attended = records.filter(r => r.status === 'Present').length;
+    const total = records.length;
+    const percentage = total > 0 ? (attended / total) * 100 : 0;
+
+    // Subject breakdown
+    const subjectStats = {};
+    for (const rec of records) {
+      if (!subjectStats[rec.subjectName]) {
+        subjectStats[rec.subjectName] = { attended: 0, total: 0 };
+      }
+      subjectStats[rec.subjectName].total++;
+      if (rec.status === 'Present') subjectStats[rec.subjectName].attended++;
+    }
+    for (const key of Object.keys(subjectStats)) {
+      const s = subjectStats[key];
+      s.percentage = s.total > 0 ? (s.attended / s.total) * 100 : 0;
+    }
+
+    res.json({ success: true, total, attended, missed: total - attended, percentage, subjectStats, records });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete an attendance session batch
+app.delete('/api/attendance/batch', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can delete attendance' });
+
+    const { className, section, subjectName, date } = req.body;
+    const result = await query(
+      `DELETE FROM attendance_records WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) AND LOWER("subjectName") = LOWER($3) AND date = $4`,
+      [className, section, subjectName, date]
+    );
+    res.json({ success: true, message: `Deleted ${result.rowCount} attendance records` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get unique marked sessions for a class
+app.get('/api/attendance/sessions/:className/:section', authenticateToken, async (req, res) => {
+  try {
+    const { className, section } = req.params;
+    const result = await query(
+      `SELECT DISTINCT "subjectName" as subject, date FROM attendance_records WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY date DESC`,
+      [className, section]
+    );
+    res.json({ success: true, sessions: result.rows });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

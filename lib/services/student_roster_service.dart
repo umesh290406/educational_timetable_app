@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import 'attendance_service.dart';
 
 class StudentProfile {
@@ -49,28 +49,16 @@ class StudentProfile {
 }
 
 class StudentRosterService {
-  static const String _key = 'detailed_student_roster_v1';
-
   static Future<List<StudentProfile>> getAllStudents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString(_key);
-    if (data == null) return [];
-    final List<dynamic> jsonList = jsonDecode(data);
-    return jsonList.map((e) => StudentProfile.fromJson(e)).toList();
-  }
-
-  static Future<void> saveAllStudents(List<StudentProfile> students) async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = jsonEncode(students.map((e) => e.toJson()).toList());
-    await prefs.setString(_key, data);
+    // This method is less useful with backend, but kept for compatibility
+    // In practice, callers should use getStudentsForClass
+    return [];
   }
 
   static Future<List<StudentProfile>> getStudentsForClass(String className, String section) async {
-    final students = await getAllStudents();
-    final filtered = students
-        .where((e) =>
-            e.className.toLowerCase() == className.toLowerCase() &&
-            e.section.toLowerCase() == section.toLowerCase())
+    final list = await ApiService.getRoster(className, section);
+    final filtered = list
+        .map((e) => StudentProfile.fromJson(e as Map<String, dynamic>))
         .toList();
     
     // Sort by roll number numerically if possible, otherwise alphabetically
@@ -86,24 +74,15 @@ class StudentRosterService {
   }
 
   static Future<void> saveStudent(StudentProfile student) async {
-    final students = await getAllStudents();
-    
-    // Remove if already exists with same roll number, class and section
-    students.removeWhere((e) =>
-        e.rollNo == student.rollNo &&
-        e.className.toLowerCase() == student.className.toLowerCase() &&
-        e.section.toLowerCase() == student.section.toLowerCase());
-
-    students.add(student);
-    await saveAllStudents(students);
-
-    // Sync with global registry in AttendanceService
-    await AttendanceService.registerStudent(
-      email: 'student_${student.rollNo}_${student.section.toLowerCase()}@school.com',
-      name: student.name,
+    await ApiService.saveStudentToRoster(
       rollNo: student.rollNo,
+      name: student.name,
       className: student.className,
       section: student.section,
+      address: student.address,
+      contactNo: student.contactNo,
+      parentsNo: student.parentsNo,
+      birthday: student.birthday,
     );
   }
 
@@ -112,11 +91,6 @@ class StudentRosterService {
     required String section,
     required String rollNo,
   }) async {
-    final students = await getAllStudents();
-    students.removeWhere((e) =>
-        e.rollNo == rollNo &&
-        e.className.toLowerCase() == className.toLowerCase() &&
-        e.section.toLowerCase() == section.toLowerCase());
-    await saveAllStudents(students);
+    await ApiService.deleteStudentFromRoster(className, section, rollNo);
   }
 }

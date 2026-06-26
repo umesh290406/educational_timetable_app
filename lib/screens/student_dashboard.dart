@@ -29,7 +29,7 @@ class StudentDashboard extends StatefulWidget {
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
-  Timer? _notificationTimer;
+  bool _isLoading = true;
   final Set<String> _shownNotificationIds = {};
 
   @override
@@ -93,16 +93,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
         });
       }
     });
-    
-    // Polling for notifications every 10 seconds for fast demo updates
-    _notificationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _checkNewNotifications();
-    });
   }
 
   @override
   void dispose() {
-    _notificationTimer?.cancel();
     super.dispose();
   }
 

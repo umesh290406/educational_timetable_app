@@ -653,4 +653,291 @@ class ApiService {
       return {'success': false, 'message': e.toString()};
     }
   }
+
+  // ==========================================
+  // LEAVE MANAGEMENT
+  // ==========================================
+
+  static Future<Map<String, dynamic>> applyLeave({
+    required String rollNo,
+    required String reason,
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/leaves'),
+        headers: _headers,
+        body: jsonEncode({
+          'rollNo': rollNo,
+          'reason': reason,
+          'startDate': startDate,
+          'endDate': endDate,
+        }),
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<List<dynamic>> getStudentLeaves() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/leaves/student'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) return data['leaves'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<List<dynamic>> getTeacherLeaves(String className, String section) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/leaves/teacher/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) return data['leaves'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateLeaveStatus({
+    required String id,
+    required String status,
+    required String comment,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/leaves/$id/status'),
+        headers: _headers,
+        body: jsonEncode({'status': status, 'comment': comment}),
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // ==========================================
+  // EXAM SCHEDULES
+  // ==========================================
+
+  static Future<Map<String, dynamic>> createExam({
+    required String className,
+    required String section,
+    required String subjectName,
+    required String examDate,
+    required String startTime,
+    required String endTime,
+    required String venue,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/exams'),
+        headers: _headers,
+        body: jsonEncode({
+          'className': className,
+          'section': section,
+          'subjectName': subjectName,
+          'examDate': examDate,
+          'startTime': startTime,
+          'endTime': endTime,
+          'venue': venue,
+        }),
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<List<dynamic>> getExamsForClass(String className, String section) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/exams/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) return data['exams'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteExam(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/exams/$id'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // ==========================================
+  // STUDENT ROSTER
+  // ==========================================
+
+  static Future<Map<String, dynamic>> saveStudentToRoster({
+    required String rollNo,
+    required String name,
+    required String className,
+    required String section,
+    String? address,
+    String? contactNo,
+    String? parentsNo,
+    String? birthday,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/roster'),
+        headers: _headers,
+        body: jsonEncode({
+          'rollNo': rollNo,
+          'name': name,
+          'className': className,
+          'section': section,
+          'address': address ?? '',
+          'contactNo': contactNo ?? '',
+          'parentsNo': parentsNo ?? '',
+          'birthday': birthday ?? '',
+        }),
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<List<dynamic>> getRoster(String className, String section) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/roster/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) return data['students'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteStudentFromRoster(String className, String section, String rollNo) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/roster/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}/${Uri.encodeComponent(rollNo)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // ==========================================
+  // ATTENDANCE
+  // ==========================================
+
+  static Future<Map<String, dynamic>> saveBatchAttendance(List<Map<String, dynamic>> records) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/attendance/batch'),
+        headers: _headers,
+        body: jsonEncode({'records': records}),
+      ).timeout(const Duration(seconds: 60));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<List<dynamic>> getAttendanceRecords(String className, String section) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/attendance/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) return data['records'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> getStudentAttendanceStats(String rollNo, String className, String section) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/attendance/student/${Uri.encodeComponent(rollNo)}/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteAttendanceBatch({
+    required String className,
+    required String section,
+    required String subjectName,
+    required String date,
+  }) async {
+    try {
+      final request = http.Request('DELETE', Uri.parse('$baseUrl/api/attendance/batch'));
+      request.headers.addAll(_headers);
+      request.body = jsonEncode({
+        'className': className,
+        'section': section,
+        'subjectName': subjectName,
+        'date': date,
+      });
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  static Future<List<dynamic>> getAttendanceSessions(String className, String section) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/attendance/sessions/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) return data['sessions'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
 }

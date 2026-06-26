@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 class LeaveRequest {
   final String id;
@@ -84,22 +84,6 @@ class LeaveRequest {
 }
 
 class LeaveService {
-  static const String _key = 'student_leaves_v1';
-
-  static Future<List<LeaveRequest>> getAllLeaves() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString(_key);
-    if (data == null) return [];
-    final List<dynamic> jsonList = jsonDecode(data);
-    return jsonList.map((e) => LeaveRequest.fromJson(e)).toList();
-  }
-
-  static Future<void> saveAllLeaves(List<LeaveRequest> leaves) async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = jsonEncode(leaves.map((e) => e.toJson()).toList());
-    await prefs.setString(_key, data);
-  }
-
   static Future<void> applyLeave({
     required String studentEmail,
     required String studentName,
@@ -110,23 +94,12 @@ class LeaveService {
     required String startDate,
     required String endDate,
   }) async {
-    final leaves = await getAllLeaves();
-    final newRequest = LeaveRequest(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      studentEmail: studentEmail,
-      studentName: studentName,
+    await ApiService.applyLeave(
       rollNo: rollNo,
-      className: className,
-      section: section,
       reason: reason,
       startDate: startDate,
       endDate: endDate,
-      status: 'Pending',
-      comment: '',
-      appliedAt: DateTime.now().toIso8601String(),
     );
-    leaves.add(newRequest);
-    await saveAllLeaves(leaves);
   }
 
   static Future<void> updateLeaveStatus({
@@ -134,26 +107,22 @@ class LeaveService {
     required String status,
     required String comment,
   }) async {
-    final leaves = await getAllLeaves();
-    final index = leaves.indexWhere((e) => e.id == id);
-    if (index != -1) {
-      leaves[index] = leaves[index].copyWith(status: status, comment: comment);
-      await saveAllLeaves(leaves);
-    }
+    await ApiService.updateLeaveStatus(
+      id: id,
+      status: status,
+      comment: comment,
+    );
   }
 
   static Future<List<LeaveRequest>> getLeavesForStudent(String email) async {
-    final leaves = await getAllLeaves();
-    return leaves.where((e) => e.studentEmail.toLowerCase() == email.toLowerCase()).toList()
+    final list = await ApiService.getStudentLeaves();
+    return list.map((e) => LeaveRequest.fromJson(e as Map<String, dynamic>)).toList()
       ..sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
   }
 
   static Future<List<LeaveRequest>> getLeavesForTeacher(String className, String section) async {
-    final leaves = await getAllLeaves();
-    return leaves.where((e) => 
-      e.className.toLowerCase() == className.toLowerCase() &&
-      e.section.toLowerCase() == section.toLowerCase()
-    ).toList()
+    final list = await ApiService.getTeacherLeaves(className, section);
+    return list.map((e) => LeaveRequest.fromJson(e as Map<String, dynamic>)).toList()
       ..sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
   }
 }
