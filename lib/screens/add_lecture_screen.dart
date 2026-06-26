@@ -36,7 +36,7 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
   }
 
   // Reminder
-  String _selectedReminder = 'None';
+  String _selectedReminder = 'Send Now';
 
   // Time
   String _startTime = '';

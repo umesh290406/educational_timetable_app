@@ -745,9 +745,36 @@ app.post('/api/notifications/schedule', async (req, res) => {
     const teacher = teacherResult.rows[0];
     const college = teacher ? teacher.college : null;
 
+    // Parse class and specialization from className parameter if it includes ' - '
+    let parsedClass = className;
+    let parsedSpecialization = null;
+    if (className && className.includes(' - ')) {
+      const parts = className.split(' - ');
+      parsedClass = parts[0].trim();
+      parsedSpecialization = parts.slice(1).join(' - ').trim();
+    }
+
     const students = await query(
-      `SELECT id, "fcmToken" FROM users WHERE role = 'student' AND UPPER(TRIM("className")) = UPPER(TRIM($1)) AND UPPER(TRIM(section)) = UPPER(TRIM($2)) AND (college IS NULL OR UPPER(TRIM(college)) = UPPER(TRIM($3)))`,
-      [className, section, college]
+      `SELECT id, "fcmToken" FROM users
+       WHERE role = 'student'
+         AND COALESCE(LOWER(TRIM("className")), '') = COALESCE(LOWER(TRIM($1)), '')
+         AND COALESCE(LOWER(TRIM(section)), '') = COALESCE(LOWER(TRIM($2)), '')
+         AND (
+           COALESCE(LOWER(TRIM(specialization)), '') = ''
+           OR COALESCE(LOWER(TRIM($3)), '') = ''
+           OR COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($3)), '')
+         )
+         AND (
+           COALESCE(LOWER(TRIM(college)), '') = ''
+           OR COALESCE(LOWER(TRIM($4)), '') = ''
+           OR COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($4)), '')
+         )`,
+      [
+        parsedClass,
+        section || '',
+        parsedSpecialization || '',
+        college || ''
+      ]
     );
 
     const scheduledTime = scheduledAt || new Date().toISOString();
