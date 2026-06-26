@@ -92,7 +92,7 @@ async function authenticateToken(req, res, next) {
 
     const decoded = jwt.verify(token, secret);
     // Attach role from token; also fetch from DB to ensure user still exists
-    const result = await query(`SELECT id, role, name, email, username FROM users WHERE id = $1`, [decoded.userId]);
+    const result = await query(`SELECT id, role, name, email, username, "className", section, specialization, college FROM users WHERE id = $1`, [decoded.userId]);
     if (result.rows.length === 0) return res.status(401).json({ success: false, message: 'User not found' });
 
     req.user = { ...decoded, ...result.rows[0], userId: result.rows[0].id };
@@ -1554,10 +1554,29 @@ app.get('/api/leaves/teacher/:className/:section', authenticateToken, async (req
   try {
     if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can access this' });
 
-    const { className, section } = req.params;
+    // Fetch the teacher's profile details
+    const teacherResult = await query(
+      `SELECT "className", section, specialization, college FROM users WHERE id = $1`,
+      [req.user.userId]
+    );
+    const teacher = teacherResult.rows[0];
+    if (!teacher) return res.status(404).json({ success: false, message: 'Teacher profile not found' });
+
+    // Enforce same college, class, division (section), and specialization by joining with users table
     const result = await query(
-      `SELECT * FROM leaves WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY "appliedAt" DESC`,
-      [className, section]
+      `SELECT l.* FROM leaves l
+       JOIN users u ON l."studentId" = u.id
+       WHERE COALESCE(LOWER(TRIM(l."className")), '') = COALESCE(LOWER(TRIM($1)), '')
+         AND COALESCE(LOWER(TRIM(l.section)), '') = COALESCE(LOWER(TRIM($2)), '')
+         AND COALESCE(LOWER(TRIM(u.college)), '') = COALESCE(LOWER(TRIM($3)), '')
+         AND COALESCE(LOWER(TRIM(u.specialization)), '') = COALESCE(LOWER(TRIM($4)), '')
+       ORDER BY l."appliedAt" DESC`,
+      [
+        teacher.className || '',
+        teacher.section || '',
+        teacher.college || '',
+        teacher.specialization || ''
+      ]
     );
     res.json({ success: true, leaves: result.rows });
   } catch (error) {
@@ -1588,6 +1607,41 @@ app.put('/api/leaves/:id/status', authenticateToken, async (req, res) => {
 
     if (!status || !['Approved', 'Rejected'].includes(status)) {
       return res.status(400).json({ success: false, message: 'Status must be Approved or Rejected' });
+    }
+
+    // Fetch the teacher's profile
+    const teacherResult = await query(
+      `SELECT "className", section, specialization, college FROM users WHERE id = $1`,
+      [req.user.userId]
+    );
+    const teacher = teacherResult.rows[0];
+    if (!teacher) return res.status(404).json({ success: false, message: 'Teacher profile not found' });
+
+    // Fetch the leave and the student who applied
+    const leaveResult = await query(
+      `SELECT l.*, u.college, u.specialization FROM leaves l
+       JOIN users u ON l."studentId" = u.id
+       WHERE l.id = $1`,
+      [id]
+    );
+    if (leaveResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Leave request not found' });
+    }
+    const leave = leaveResult.rows[0];
+
+    // Enforce same college, class, section, and specialization
+    const normalize = (val) => (!val || val.toString().trim() === '') ? '' : val.toString().trim().toLowerCase();
+
+    const cllgMatches = normalize(leave.college) === normalize(teacher.college);
+    const classMatches = normalize(leave.className) === normalize(teacher.className);
+    const sectionMatches = normalize(leave.section) === normalize(teacher.section);
+    const specMatches = normalize(leave.specialization) === normalize(teacher.specialization);
+
+    if (!cllgMatches || !classMatches || !sectionMatches || !specMatches) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to update this leave request (mismatched college, class, section, or specialization).'
+      });
     }
 
     await query(
