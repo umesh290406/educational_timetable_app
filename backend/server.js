@@ -461,11 +461,16 @@ app.post('/api/auth/login', async (req, res) => {
       `SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)`,
       [identifier.trim()]
     );
-    const user = result.rows[0];
 
-    if (!user) {
+    if (result.rows.length === 0) {
       console.log(`❌ User not found: ${identifier}`);
       return res.status(400).json({ success: false, message: 'User not found' });
+    }
+
+    // If multiple matching rows exist, select the one that matches the requested role
+    let user = result.rows.find(r => r.role === role);
+    if (!user) {
+      user = result.rows[0];
     }
 
     console.log(`✅ User located: ${user.name} (${user.role})`);
