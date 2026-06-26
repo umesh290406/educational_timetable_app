@@ -249,16 +249,17 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Venue/Room Number
+                      // Venue/Room Number (Optional)
                       TextFormField(
                         controller: venueController,
                         style: GoogleFonts.poppins(fontSize: 14),
                         decoration: InputDecoration(
-                          labelText: 'Exam Venue / Room Number',
+                          labelText: 'Exam Venue / Room Number (Optional)',
                           labelStyle: GoogleFonts.poppins(fontSize: 13),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Enter venue/room number' : null,
+                        // Venue is optional
+                        validator: (v) => null,
                       ),
                     ],
                   ),
@@ -275,7 +276,15 @@ class _TeacherExamScreenState extends State<TeacherExamScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () async {
-                    if (!formKey.currentState!.validate()) return;
+                    if (!formKey.currentState!.validate()) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please fill all required fields (e.g. Subject Name).'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
                     if (selectedDate == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please select exam date'), backgroundColor: Colors.red),
