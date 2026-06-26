@@ -184,6 +184,8 @@ async function initDB() {
     await query(`ALTER TABLE leaves ADD COLUMN IF NOT EXISTS "rollNo" TEXT`);
     await query(`ALTER TABLE exam_schedules ADD COLUMN IF NOT EXISTS specialization TEXT`);
     await query(`ALTER TABLE exam_schedules ADD COLUMN IF NOT EXISTS college TEXT`);
+    await query(`ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS specialization TEXT`);
+    await query(`ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS college TEXT`);
 
     // Online Tests tables
     await query(`
@@ -1829,6 +1831,7 @@ app.delete('/api/roster/:className/:section/:rollNo', authenticateToken, async (
 // =====================
 
 // Save a batch of attendance records
+// Save a batch of attendance records
 app.post('/api/attendance/batch', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can mark attendance' });
@@ -1838,18 +1841,41 @@ app.post('/api/attendance/batch', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'No records provided' });
     }
 
+    // Fetch the teacher's profile to get their college
+    const teacherResult = await query(
+      `SELECT college FROM users WHERE id = $1`,
+      [req.user.userId]
+    );
+    const college = teacherResult.rows[0]?.college || null;
+
     for (const rec of records) {
-      // Remove existing record for the same student/subject/date/class/section to avoid duplicates
+      // Parse class and specialization from rec.className
+      let parsedClass = rec.className;
+      let parsedSpecialization = null;
+      if (rec.className && rec.className.includes(' - ')) {
+        const parts = rec.className.split(' - ');
+        parsedClass = parts[0].trim();
+        parsedSpecialization = parts.slice(1).join(' - ').trim();
+      }
+
+      // Remove existing record for the same student/subject/date/class/section/specialization/college to avoid duplicates
       await query(
-        `DELETE FROM attendance_records WHERE "rollNo" = $1 AND LOWER("subjectName") = LOWER($2) AND date = $3 AND LOWER("className") = LOWER($4) AND LOWER(section) = LOWER($5)`,
-        [rec.rollNo, rec.subjectName, rec.date, rec.className, rec.section]
+        `DELETE FROM attendance_records
+         WHERE "rollNo" = $1
+           AND LOWER("subjectName") = LOWER($2)
+           AND date = $3
+           AND LOWER("className") = LOWER($4)
+           AND LOWER(section) = LOWER($5)
+           AND COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($6)), '')
+           AND COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($7)), '')`,
+        [rec.rollNo, rec.subjectName, rec.date, parsedClass, rec.section, parsedSpecialization || '', college || '']
       );
 
       const recId = generateId();
       await query(
-        `INSERT INTO attendance_records (id, "rollNo", "studentName", "subjectName", date, status, "className", section, "teacherId")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [recId, rec.rollNo, rec.studentName, rec.subjectName, rec.date, rec.status, rec.className, rec.section, req.user.userId]
+        `INSERT INTO attendance_records (id, "rollNo", "studentName", "subjectName", date, status, "className", section, "teacherId", specialization, college)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [recId, rec.rollNo, rec.studentName, rec.subjectName, rec.date, rec.status, parsedClass, rec.section, req.user.userId, parsedSpecialization || null, college]
       );
     }
 
@@ -1862,10 +1888,41 @@ app.post('/api/attendance/batch', authenticateToken, async (req, res) => {
 // Get all attendance records for a class/section
 app.get('/api/attendance/:className/:section', authenticateToken, async (req, res) => {
   try {
-    const { className, section } = req.params;
+    const { className: paramClass, section: paramSection } = req.params;
+    
+    // Parse paramClass if combined, otherwise use the user's specialization/college as filters
+    let parsedClass = paramClass;
+    let parsedSpecialization = req.user.specialization || null;
+    
+    if (paramClass && paramClass.includes(' - ')) {
+      const parts = paramClass.split(' - ');
+      parsedClass = parts[0].trim();
+      parsedSpecialization = parts.slice(1).join(' - ').trim();
+    }
+
+    const college = req.user.college || null;
+
     const result = await query(
-      `SELECT * FROM attendance_records WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY date DESC`,
-      [className, section]
+      `SELECT * FROM attendance_records
+       WHERE COALESCE(LOWER(TRIM("className")), '') = COALESCE(LOWER(TRIM($1)), '')
+         AND COALESCE(LOWER(TRIM(section)), '') = COALESCE(LOWER(TRIM($2)), '')
+         AND (
+           COALESCE(LOWER(TRIM(specialization)), '') = ''
+           OR COALESCE(LOWER(TRIM($3)), '') = ''
+           OR COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($3)), '')
+         )
+         AND (
+           COALESCE(LOWER(TRIM(college)), '') = ''
+           OR COALESCE(LOWER(TRIM($4)), '') = ''
+           OR COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($4)), '')
+         )
+       ORDER BY date DESC`,
+      [
+        parsedClass,
+        paramSection || '',
+        parsedSpecialization || '',
+        college || ''
+      ]
     );
     res.json({ success: true, records: result.rows });
   } catch (error) {
@@ -1876,10 +1933,43 @@ app.get('/api/attendance/:className/:section', authenticateToken, async (req, re
 // Get attendance stats for a specific student
 app.get('/api/attendance/student/:rollNo/:className/:section', authenticateToken, async (req, res) => {
   try {
-    const { rollNo, className, section } = req.params;
+    const { rollNo, className: paramClass, section: paramSection } = req.params;
+
+    // Parse paramClass if combined, otherwise use the user's specialization/college as filters
+    let parsedClass = paramClass;
+    let parsedSpecialization = req.user.specialization || null;
+    
+    if (paramClass && paramClass.includes(' - ')) {
+      const parts = paramClass.split(' - ');
+      parsedClass = parts[0].trim();
+      parsedSpecialization = parts.slice(1).join(' - ').trim();
+    }
+
+    const college = req.user.college || null;
+
     const result = await query(
-      `SELECT * FROM attendance_records WHERE "rollNo" = $1 AND LOWER("className") = LOWER($2) AND LOWER(section) = LOWER($3) ORDER BY date DESC`,
-      [rollNo, className, section]
+      `SELECT * FROM attendance_records
+       WHERE "rollNo" = $1
+         AND COALESCE(LOWER(TRIM("className")), '') = COALESCE(LOWER(TRIM($2)), '')
+         AND COALESCE(LOWER(TRIM(section)), '') = COALESCE(LOWER(TRIM($3)), '')
+         AND (
+           COALESCE(LOWER(TRIM(specialization)), '') = ''
+           OR COALESCE(LOWER(TRIM($4)), '') = ''
+           OR COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($4)), '')
+         )
+         AND (
+           COALESCE(LOWER(TRIM(college)), '') = ''
+           OR COALESCE(LOWER(TRIM($5)), '') = ''
+           OR COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($5)), '')
+         )
+       ORDER BY date DESC`,
+      [
+        rollNo,
+        parsedClass,
+        paramSection || '',
+        parsedSpecialization || '',
+        college || ''
+      ]
     );
 
     const records = result.rows;
@@ -1913,9 +2003,32 @@ app.delete('/api/attendance/batch', authenticateToken, async (req, res) => {
     if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can delete attendance' });
 
     const { className, section, subjectName, date } = req.body;
+
+    // Fetch the teacher's profile to get their college
+    const teacherResult = await query(
+      `SELECT college FROM users WHERE id = $1`,
+      [req.user.userId]
+    );
+    const college = teacherResult.rows[0]?.college || null;
+
+    // Parse class and specialization from className
+    let parsedClass = className;
+    let parsedSpecialization = null;
+    if (className && className.includes(' - ')) {
+      const parts = className.split(' - ');
+      parsedClass = parts[0].trim();
+      parsedSpecialization = parts.slice(1).join(' - ').trim();
+    }
+
     const result = await query(
-      `DELETE FROM attendance_records WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) AND LOWER("subjectName") = LOWER($3) AND date = $4`,
-      [className, section, subjectName, date]
+      `DELETE FROM attendance_records
+       WHERE COALESCE(LOWER(TRIM("className")), '') = COALESCE(LOWER(TRIM($1)), '')
+         AND COALESCE(LOWER(TRIM(section)), '') = COALESCE(LOWER(TRIM($2)), '')
+         AND COALESCE(LOWER(TRIM("subjectName")), '') = COALESCE(LOWER(TRIM($3)), '')
+         AND date = $4
+         AND COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($5)), '')
+         AND COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($6)), '')`,
+      [parsedClass, section || '', subjectName || '', date, parsedSpecialization || '', college || '']
     );
     res.json({ success: true, message: `Deleted ${result.rowCount} attendance records` });
   } catch (error) {
@@ -1926,10 +2039,41 @@ app.delete('/api/attendance/batch', authenticateToken, async (req, res) => {
 // Get unique marked sessions for a class
 app.get('/api/attendance/sessions/:className/:section', authenticateToken, async (req, res) => {
   try {
-    const { className, section } = req.params;
+    const { className: paramClass, section: paramSection } = req.params;
+
+    // Parse paramClass if combined, otherwise use the user's specialization/college as filters
+    let parsedClass = paramClass;
+    let parsedSpecialization = req.user.specialization || null;
+    
+    if (paramClass && paramClass.includes(' - ')) {
+      const parts = paramClass.split(' - ');
+      parsedClass = parts[0].trim();
+      parsedSpecialization = parts.slice(1).join(' - ').trim();
+    }
+
+    const college = req.user.college || null;
+
     const result = await query(
-      `SELECT DISTINCT "subjectName" as subject, date FROM attendance_records WHERE LOWER("className") = LOWER($1) AND LOWER(section) = LOWER($2) ORDER BY date DESC`,
-      [className, section]
+      `SELECT DISTINCT "subjectName" as subject, date FROM attendance_records
+       WHERE COALESCE(LOWER(TRIM("className")), '') = COALESCE(LOWER(TRIM($1)), '')
+         AND COALESCE(LOWER(TRIM(section)), '') = COALESCE(LOWER(TRIM($2)), '')
+         AND (
+           COALESCE(LOWER(TRIM(specialization)), '') = ''
+           OR COALESCE(LOWER(TRIM($3)), '') = ''
+           OR COALESCE(LOWER(TRIM(specialization)), '') = COALESCE(LOWER(TRIM($3)), '')
+         )
+         AND (
+           COALESCE(LOWER(TRIM(college)), '') = ''
+           OR COALESCE(LOWER(TRIM($4)), '') = ''
+           OR COALESCE(LOWER(TRIM(college)), '') = COALESCE(LOWER(TRIM($4)), '')
+         )
+       ORDER BY date DESC`,
+      [
+        parsedClass,
+        paramSection || '',
+        parsedSpecialization || '',
+        college || ''
+      ]
     );
     res.json({ success: true, sessions: result.rows });
   } catch (error) {
