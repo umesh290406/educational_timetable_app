@@ -1441,11 +1441,24 @@ app.get('/api/virtual_classes/student/:className/:section', authenticateToken, a
     const { className, section } = req.params;
     const { specialization } = req.query;
 
-    let sqlQuery = `SELECT * FROM virtual_classes WHERE "className" = $1 AND (section = $2 OR section IS NULL OR section = '')`;
-    let params = [className, section];
+    let sqlQuery = `
+      SELECT * FROM virtual_classes 
+      WHERE LOWER(TRIM("className")) = LOWER(TRIM($1)) 
+        AND (
+          section IS NULL OR section = '' 
+          OR LOWER(TRIM(section)) = LOWER(TRIM($2))
+        )
+    `;
+    let params = [className, section || ''];
 
     if (specialization) {
-      sqlQuery += ` AND (specialization = $3 OR specialization IS NULL OR specialization = '')`;
+      sqlQuery += `
+        AND (
+          specialization IS NULL OR specialization = ''
+          OR REPLACE(REPLACE(LOWER(TRIM(specialization)), '.', ''), ' ', '') LIKE '%' || REPLACE(REPLACE(LOWER(TRIM($3)), '.', ''), ' ', '') || '%'
+          OR REPLACE(REPLACE(LOWER(TRIM($3)), '.', ''), ' ', '') LIKE '%' || REPLACE(REPLACE(LOWER(TRIM(specialization)), '.', ''), ' ', '') || '%'
+        )
+      `;
       params.push(specialization);
     }
 
