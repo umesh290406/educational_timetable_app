@@ -72,10 +72,7 @@ void main() async {
   
   // Initialize Firebase (Only on supported platforms / if configured)
   try {
-    if (kIsWeb) {
-      // For Web, if FirebaseOptions are missing, this will fail. We catch it.
-      await Firebase.initializeApp();
-    } else {
+    if (!kIsWeb) {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       
