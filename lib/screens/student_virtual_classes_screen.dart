@@ -45,11 +45,19 @@ class _StudentVirtualClassesScreenState extends State<StudentVirtualClassesScree
   }
 
   Future<void> _joinMeeting(String urlString) async {
-    final Uri url = Uri.parse(urlString);
-    if (await canLaunchUrl(url)) {
+    try {
+      String formattedUrl = urlString.trim();
+      if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+        formattedUrl = 'https://$formattedUrl';
+      }
+      final Uri url = Uri.parse(formattedUrl);
       await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open meeting link')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open meeting link: $urlString')),
+        );
+      }
     }
   }
 

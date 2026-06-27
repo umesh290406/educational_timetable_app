@@ -1272,10 +1272,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Class Roster: ${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)} - $_selectedSection',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900),
+              Expanded(
+                child: Text(
+                  'Class Roster: ${ClassConfig.combineClassAndSpecialization(_selectedClass, _selectedSpecialization)} - $_selectedSection',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900),
+                  overflow: TextOverflow.visible,
+                ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: _showAddStudentDialog,
                 icon: const Icon(Icons.add, size: 16, color: Colors.white),
