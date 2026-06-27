@@ -1016,8 +1016,8 @@ app.get('/api/timetable/class/:className', async (req, res) => {
          AND (college IS NULL OR college = '' OR UPPER(TRIM(college)) = UPPER(TRIM(COALESCE($3, college))))
          AND (
            specialization IS NULL OR specialization = ''
-           OR $4 IS NULL OR $4 = ''
-           OR UPPER(TRIM(specialization)) = UPPER(TRIM($4))
+           OR $4::text IS NULL OR $4::text = ''
+           OR UPPER(TRIM(specialization)) = UPPER(TRIM($4::text))
          )
        ORDER BY day, "startTime"`,
       [parsedClass, section, college, specialization]
