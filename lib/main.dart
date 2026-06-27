@@ -34,6 +34,8 @@ import 'providers/lecture_provider.dart';
 import 'providers/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/api_service.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -42,6 +44,24 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (!kIsWeb) {
     await Firebase.initializeApp();
     print("Handling a background message: ${message.messageId}");
+  }
+}
+
+Future<void> _syncFcmToken() async {
+  if (kIsWeb) return;
+  try {
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    if (fcmToken != null) {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('authToken');
+      if (token != null) {
+        ApiService.setToken(token);
+        await ApiService.updateFcmToken(fcmToken);
+        print("📱 FCM Token synced: $fcmToken");
+      }
+    }
+  } catch (e) {
+    print("❌ Error syncing FCM token: $e");
   }
 }
 
@@ -65,6 +85,35 @@ void main() async {
         badge: true,
         sound: true,
       );
+
+      // Listen for foreground messages and show notification tray popups
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        final notification = message.notification;
+        if (notification != null) {
+          ReminderService.showNotification(
+            id: notification.hashCode,
+            title: notification.title ?? 'New Alert',
+            body: notification.body ?? '',
+          );
+        }
+      });
+
+      // Listen for notification clicks when app is in background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        navigatorKey.currentState?.pushNamed('/notifications');
+      });
+
+      // Check if app was opened via notification click from terminated state
+      FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
+        if (message != null) {
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            navigatorKey.currentState?.pushNamed('/notifications');
+          });
+        }
+      });
+
+      // Sync FCM token with database
+      _syncFcmToken();
     }
   } catch (e) {
     print("Firebase initialization failed (likely Web without config): $e");

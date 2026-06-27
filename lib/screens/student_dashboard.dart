@@ -31,6 +31,7 @@ class StudentDashboard extends StatefulWidget {
 class _StudentDashboardState extends State<StudentDashboard> {
   bool _isLoading = true;
   final Set<String> _shownNotificationIds = {};
+  Timer? _notificationTimer;
 
   @override
   void initState() {
@@ -39,11 +40,21 @@ class _StudentDashboardState extends State<StudentDashboard> {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final lp = Provider.of<LectureProvider>(context, listen: false);
       
-      lp.getStudentNotifications();
+      // Sync FCM token
+      ReminderService.syncFcmToken();
+
+      lp.getStudentNotifications().then((_) {
+        _checkNewNotifications();
+      });
       lp.getStudentLectures();
       if (auth.user?.className != null) {
         lp.getTimetable(auth.user!.className!);
       }
+
+      // Start polling notifications every 10 seconds for real-time popups
+      _notificationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+        _checkNewNotifications();
+      });
 
       if (auth.user?.email != null) {
         final email = auth.user!.email;
@@ -97,6 +108,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   void dispose() {
+    _notificationTimer?.cancel();
     super.dispose();
   }
 

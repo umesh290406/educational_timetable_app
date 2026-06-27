@@ -164,19 +164,20 @@ class _AddLectureScreenState extends State<AddLectureScreen> {
         if (!notificationSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Lecture created, but reminder scheduling failed. Check connection.'),
+              content: Text('Lecture created! (Reminder failed — students can see it on dashboard.)'),
               backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Lecture created successfully!'),
+              content: Text('Lecture created and reminder sent successfully!'),
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context);
         }
+        Navigator.pop(context);
       }
     } else {
       if (mounted) {

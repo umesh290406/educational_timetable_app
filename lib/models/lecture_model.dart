@@ -28,7 +28,7 @@ class Lecture {
   factory Lecture.fromJson(Map<String, dynamic> json) {
     DateTime parsedDate;
     try {
-      parsedDate = DateTime.parse(json['lectureDate'] ?? DateTime.now().toString());
+      parsedDate = DateTime.parse(json['lectureDate'] ?? DateTime.now().toString()).toLocal();
     } catch (e) {
       parsedDate = DateTime.now();
     }

@@ -40,8 +40,15 @@ class _ViewTimetableScreenState extends State<ViewTimetableScreen> {
 
   void _loadTimetable() {
     Future.microtask(() {
-      Provider.of<LectureProvider>(context, listen: false)
-          .getTimetable(widget.className);
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final lp = Provider.of<LectureProvider>(context, listen: false);
+      if (auth.user?.role == 'teacher') {
+        // For teachers: load timetable filtered by their own name
+        lp.getTeacherTimetable();
+      } else {
+        // For students: load timetable filtered by their class
+        lp.getTimetable(widget.className);
+      }
     });
   }
 

@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
 import '../main.dart'; // To access navigatorKey
 
 class ReminderService {
@@ -149,6 +152,25 @@ class ReminderService {
 
     } catch (e) {
       // Error cancelling notifications — handled silently
+    }
+  }
+
+  // Sync FCM token
+  static Future<void> syncFcmToken() async {
+    if (kIsWeb) return;
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('authToken');
+        if (token != null) {
+          ApiService.setToken(token);
+          await ApiService.updateFcmToken(fcmToken);
+          print("📱 FCM Token synced successfully via ReminderService: $fcmToken");
+        }
+      }
+    } catch (e) {
+      print("❌ Error syncing FCM token in ReminderService: $e");
     }
   }
 }

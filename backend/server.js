@@ -588,6 +588,19 @@ app.post('/api/users/recover', async (req, res) => {
   }
 });
 
+// UPDATE FCM TOKEN
+app.post('/api/users/fcm-token', authenticateToken, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) return res.status(400).json({ success: false, message: 'FCM token is required' });
+    
+    await query(`UPDATE users SET "fcmToken" = $1 WHERE id = $2`, [fcmToken, req.user.userId]);
+    res.json({ success: true, message: 'FCM token updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET STUDENT LECTURES
 app.get('/api/lectures/student', async (req, res) => {
   try {
@@ -801,6 +814,20 @@ app.post('/api/notifications/schedule', async (req, res) => {
     if (fcmTokens.length > 0) {
       const payload = {
         notification: { title, body: message },
+        android: {
+          notification: {
+            channelId: 'lecture_reminders_channel',
+            priority: 'high',
+            sound: 'default'
+          }
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default'
+            }
+          }
+        },
         tokens: fcmTokens
       };
       admin.messaging().sendEachForMulticast(payload).catch(e => console.error("FCM Send Error:", e));
@@ -944,7 +971,7 @@ app.post('/api/timetable/create', async (req, res) => {
   }
 });
 
-// GET TIMETABLE FOR CLASS
+// GET TIMETABLE FOR CLASS (Student)
 app.get('/api/timetable/class/:className', async (req, res) => {
   try {
     const { className } = req.params;
@@ -979,9 +1006,47 @@ app.get('/api/timetable/class/:className', async (req, res) => {
       }
     }
 
+    // Return entries that match className + section (if set) + college (if set)
+    // Entries with NULL specialization are shown to ALL students in that class/section
+    // If student has no specialization in profile, show all entries of that class/section
     const entries = await query(
-      `SELECT * FROM timetable WHERE UPPER(TRIM("className")) = UPPER(TRIM($1)) AND (section IS NULL OR UPPER(TRIM(section)) = UPPER(TRIM($2))) AND (specialization IS NULL OR UPPER(TRIM(specialization)) = UPPER(TRIM($3))) AND (college IS NULL OR UPPER(TRIM(college)) = UPPER(TRIM($4))) ORDER BY day, "startTime"`,
-      [parsedClass, section, specialization, college]
+      `SELECT * FROM timetable
+       WHERE UPPER(TRIM("className")) = UPPER(TRIM($1))
+         AND (section IS NULL OR section = '' OR UPPER(TRIM(section)) = UPPER(TRIM(COALESCE($2, section))))
+         AND (college IS NULL OR college = '' OR UPPER(TRIM(college)) = UPPER(TRIM(COALESCE($3, college))))
+         AND (
+           specialization IS NULL OR specialization = ''
+           OR $4 IS NULL OR $4 = ''
+           OR UPPER(TRIM(specialization)) = UPPER(TRIM($4))
+         )
+       ORDER BY day, "startTime"`,
+      [parsedClass, section, college, specialization]
+    );
+    res.json(entries.rows);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET TIMETABLE FOR TEACHER (by teacher name)
+app.get('/api/timetable/teacher', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ success: false, message: 'No token' });
+
+    const decoded = jwt.verify(token, secret);
+    const teacherResult = await query(`SELECT name FROM users WHERE id = $1`, [decoded.userId]);
+    const teacher = teacherResult.rows[0];
+    if (!teacher) return res.status(404).json({ success: false, message: 'Teacher not found' });
+
+    // Flexible match by name to handle custom form inputs (like 'Umesh' vs 'Umesh8')
+    const entries = await query(
+      `SELECT * FROM timetable 
+       WHERE UPPER(TRIM("teacherName")) = UPPER(TRIM($1))
+          OR UPPER(TRIM($1)) LIKE '%' || UPPER(TRIM("teacherName")) || '%'
+          OR UPPER(TRIM("teacherName")) LIKE '%' || UPPER(TRIM($1)) || '%'
+       ORDER BY day, "startTime"`,
+      [teacher.name]
     );
     res.json(entries.rows);
   } catch (error) {
@@ -1585,30 +1650,39 @@ app.get('/api/leaves/teacher/:className/:section', authenticateToken, async (req
   try {
     if (req.user.role !== 'teacher') return res.status(403).json({ success: false, message: 'Only teachers can access this' });
 
-    // Fetch the teacher's profile details
+    // Use URL params for filtering — teachers don't have className/section in their profile
+    const { className, section } = req.params;
+    const specialization = req.query.specialization || null;
+
+    // Get teacher's college for additional scoping
     const teacherResult = await query(
-      `SELECT "className", section, specialization, college FROM users WHERE id = $1`,
+      `SELECT college FROM users WHERE id = $1`,
       [req.user.userId]
     );
     const teacher = teacherResult.rows[0];
-    if (!teacher) return res.status(404).json({ success: false, message: 'Teacher profile not found' });
+    const college = teacher ? teacher.college : null;
 
-    // Enforce same college, class, division (section), and specialization by joining with users table
-    const result = await query(
-      `SELECT l.* FROM leaves l
+    let sqlQuery = `SELECT l.*, u.specialization as "studentSpecialization" FROM leaves l
        JOIN users u ON l."studentId" = u.id
        WHERE COALESCE(LOWER(TRIM(l."className")), '') = COALESCE(LOWER(TRIM($1)), '')
-         AND COALESCE(LOWER(TRIM(l.section)), '') = COALESCE(LOWER(TRIM($2)), '')
-         AND COALESCE(LOWER(TRIM(u.college)), '') = COALESCE(LOWER(TRIM($3)), '')
-         AND COALESCE(LOWER(TRIM(u.specialization)), '') = COALESCE(LOWER(TRIM($4)), '')
-       ORDER BY l."appliedAt" DESC`,
-      [
-        teacher.className || '',
-        teacher.section || '',
-        teacher.college || '',
-        teacher.specialization || ''
-      ]
-    );
+         AND COALESCE(LOWER(TRIM(l.section)), '') = COALESCE(LOWER(TRIM($2)), '')`;
+    const params = [className || '', section || ''];
+
+    // Filter by college if teacher has one set
+    if (college) {
+      sqlQuery += ` AND (COALESCE(LOWER(TRIM(u.college)), '') = '' OR COALESCE(LOWER(TRIM(u.college)), '') = COALESCE(LOWER(TRIM($${params.length + 1})), ''))`;
+      params.push(college);
+    }
+
+    // Filter by specialization if provided
+    if (specialization && specialization.trim() !== '') {
+      sqlQuery += ` AND (COALESCE(LOWER(TRIM(u.specialization)), '') = '' OR COALESCE(LOWER(TRIM(u.specialization)), '') = COALESCE(LOWER(TRIM($${params.length + 1})), ''))`;
+      params.push(specialization);
+    }
+
+    sqlQuery += ` ORDER BY l."appliedAt" DESC`;
+
+    const result = await query(sqlQuery, params);
     res.json({ success: true, leaves: result.rows });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1640,39 +1714,10 @@ app.put('/api/leaves/:id/status', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Status must be Approved or Rejected' });
     }
 
-    // Fetch the teacher's profile
-    const teacherResult = await query(
-      `SELECT "className", section, specialization, college FROM users WHERE id = $1`,
-      [req.user.userId]
-    );
-    const teacher = teacherResult.rows[0];
-    if (!teacher) return res.status(404).json({ success: false, message: 'Teacher profile not found' });
-
-    // Fetch the leave and the student who applied
-    const leaveResult = await query(
-      `SELECT l.*, u.college, u.specialization FROM leaves l
-       JOIN users u ON l."studentId" = u.id
-       WHERE l.id = $1`,
-      [id]
-    );
+    // Verify the leave exists
+    const leaveResult = await query(`SELECT * FROM leaves WHERE id = $1`, [id]);
     if (leaveResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Leave request not found' });
-    }
-    const leave = leaveResult.rows[0];
-
-    // Enforce same college, class, section, and specialization
-    const normalize = (val) => (!val || val.toString().trim() === '') ? '' : val.toString().trim().toLowerCase();
-
-    const cllgMatches = normalize(leave.college) === normalize(teacher.college);
-    const classMatches = normalize(leave.className) === normalize(teacher.className);
-    const sectionMatches = normalize(leave.section) === normalize(teacher.section);
-    const specMatches = normalize(leave.specialization) === normalize(teacher.specialization);
-
-    if (!cllgMatches || !classMatches || !sectionMatches || !specMatches) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to update this leave request (mismatched college, class, section, or specialization).'
-      });
     }
 
     await query(

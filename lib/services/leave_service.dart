@@ -120,8 +120,8 @@ class LeaveService {
       ..sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
   }
 
-  static Future<List<LeaveRequest>> getLeavesForTeacher(String className, String section) async {
-    final list = await ApiService.getTeacherLeaves(className, section);
+  static Future<List<LeaveRequest>> getLeavesForTeacher(String className, String section, {String? specialization}) async {
+    final list = await ApiService.getTeacherLeaves(className, section, specialization: specialization);
     return list.map((e) => LeaveRequest.fromJson(e as Map<String, dynamic>)).toList()
       ..sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
   }

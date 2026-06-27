@@ -697,10 +697,14 @@ class ApiService {
     }
   }
 
-  static Future<List<dynamic>> getTeacherLeaves(String className, String section) async {
+  static Future<List<dynamic>> getTeacherLeaves(String className, String section, {String? specialization}) async {
     try {
+      String url = '$baseUrl/api/leaves/teacher/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}';
+      if (specialization != null && specialization.isNotEmpty) {
+        url += '?specialization=${Uri.encodeComponent(specialization)}';
+      }
       final response = await http.get(
-        Uri.parse('$baseUrl/api/leaves/teacher/${Uri.encodeComponent(className)}/${Uri.encodeComponent(section)}'),
+        Uri.parse(url),
         headers: _headers,
       ).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
@@ -938,6 +942,19 @@ class ApiService {
       return [];
     } catch (e) {
       return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateFcmToken(String fcmToken) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/users/fcm-token'),
+        headers: _headers,
+        body: jsonEncode({'fcmToken': fcmToken}),
+      ).timeout(const Duration(seconds: 15));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 }

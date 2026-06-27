@@ -18,6 +18,7 @@ import '../providers/theme_provider.dart';
 import '../services/attendance_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/class_config.dart';
+import '../services/reminder_service.dart';
 
 class TeacherDashboard extends StatefulWidget {
   const TeacherDashboard({Key? key}) : super(key: key);
@@ -32,6 +33,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     super.initState();
     Future.microtask(() async {
       final lp = Provider.of<LectureProvider>(context, listen: false);
+      
+      // Sync FCM token
+      ReminderService.syncFcmToken();
+      
       await lp.getTeacherLectures();
       await lp.getTeacherTimetable();
     });
@@ -595,12 +600,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             ),
             FloatingActionButton(
               heroTag: 'add_lecture_teacher',
-              onPressed: () {
-                Navigator.of(context).push(
+              onPressed: () async {
+                await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const AddLectureScreen(),
                   ),
                 );
+                if (mounted) {
+                  final lp = Provider.of<LectureProvider>(context, listen: false);
+                  await lp.getTeacherLectures();
+                }
               },
               backgroundColor: Colors.teal.shade600,
               child: const Icon(Icons.add, color: Colors.white),
